@@ -1,35 +1,39 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import React from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        // リストは自動で無効にし、task-list専用にする
+        bulletList: false,
+        orderedList: false,
+      }),
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
+    ],
+    content: `
+      <ul data-type="taskList">
+        <li data-type="taskItem" data-checked="false">Task A</li>
+        <li data-type="taskItem" data-checked="true">
+          <p>Subtask A1</p>
+        </li>
+        <li data-type="taskItem" data-checked="false">Task B</li>
+      </ul>
+    `,
+  });
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="p-6 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">📝 Notion風 ToDoエディタ</h1>
+      <div className="border border-gray-300 rounded-md p-4">
+        <EditorContent editor={editor} />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
-
-export default App
