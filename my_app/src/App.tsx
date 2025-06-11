@@ -31,7 +31,10 @@ export default function App() {
     <div className="p-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">📝 Notion風 ToDoエディタ</h1>
       <div className="border border-gray-300 rounded-md p-4">
-        <EditorContent editor={editor} />
+        <EditorContent
+          editor={editor}
+          className="prose w-full h-full outline-none checked-task"
+        />
       </div>
     </div>
   );
