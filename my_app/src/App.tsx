@@ -1,3 +1,5 @@
+import './styles.css'
+
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
@@ -18,13 +20,10 @@ export default function App() {
       }),
     ],
     content: `
-      <ul data-type="taskList">
-        <li data-type="taskItem" data-checked="false">Task A</li>
-        <li data-type="taskItem" data-checked="true">
-          <p>Subtask A1</p>
-        </li>
-        <li data-type="taskItem" data-checked="false">Task B</li>
-      </ul>
+        <ul data-type="taskList">
+          <li data-type="taskItem" data-checked="true">A list item</li>
+          <li data-type="taskItem" data-checked="false">And another one</li>
+        </ul>
     `,
   });
 
