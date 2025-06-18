@@ -49,28 +49,22 @@ export default function App() {
       let hasChanges = false;
       
       parentTasks.forEach(parentTask => {
-        // 直下の子タスクリストを取得
         const childTaskList = parentTask.querySelector('ul[data-type="taskList"]');
         
         if (childTaskList) {
-          // 直下の子タスクのみを取得（孫タスクは除外）
           const childTasks = childTaskList.querySelectorAll(':scope > li[data-type="taskItem"]');
           
           if (childTasks.length > 0) {
-            // すべての子タスクが完了しているかチェック
             const allChildrenCompleted = Array.from(childTasks).every(child => 
               child.getAttribute('data-checked') === 'true'
             );
             
-            // 親タスクの現在の状態
             const parentChecked = parentTask.getAttribute('data-checked') === 'true';
             
-            // 子タスクがすべて完了していて、親が未完了の場合
             if (allChildrenCompleted && !parentChecked) {
               parentTask.setAttribute('data-checked', 'true');
               hasChanges = true;
             }
-            // 子タスクに未完了があって、親が完了している場合
             else if (!allChildrenCompleted && parentChecked) {
               parentTask.setAttribute('data-checked', 'false');
               hasChanges = true;
@@ -79,10 +73,8 @@ export default function App() {
         }
       });
       
-      // 変更があった場合、エディタの内容を更新
       if (hasChanges) {
         const updatedHtml = doc.body.innerHTML;
-        // 無限ループを防ぐため、一時的にonUpdateを無効化
         editor.commands.setContent(updatedHtml, false);
       }
       
@@ -94,44 +86,153 @@ export default function App() {
         totalTasks: allTasks.length,
         completedTasks: completedTasks.length
       });
-      
-      console.log('タスク統計:', {
-        total: allTasks.length,
-        completed: completedTasks.length,
-        hasAutoUpdates: hasChanges
-      });
     },
   });
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">📝 親子タスク連動エディタ</h1>
-      
-      {/* 統計表示 */}
-      <div className="mb-4 p-3 bg-blue-50 rounded">
-        <p className="font-medium">📊 タスク統計</p>
-        <p>完了: {stats.completedTasks}/{stats.totalTasks}</p>
-        <p className="text-sm text-gray-600 mt-2">
-          💡 子タスクをすべて完了すると親タスクも自動で完了します
-        </p>
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
+      {/* 左側 */}
+      <div style={{ width: '60%', padding: '24px', overflow: 'auto' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>
+          📝 親子タスク連動エディタ
+        </h1>
+        
+        {/* 統計表示 */}
+        <div style={{ 
+          marginBottom: '16px', 
+          padding: '12px', 
+          backgroundColor: '#dbeafe', 
+          borderRadius: '8px' 
+        }}>
+          <p style={{ fontWeight: '600' }}>📊 タスク統計</p>
+          <p>完了: {stats.completedTasks}/{stats.totalTasks}</p>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '8px' }}>
+            💡 子タスクをすべて完了すると親タスクも自動で完了します
+          </p>
+        </div>
+        
+        <div style={{ 
+          border: '1px solid #d1d5db', 
+          borderRadius: '6px', 
+          padding: '16px',
+          backgroundColor: 'white',
+          minHeight: '400px'
+        }}>
+          <EditorContent
+            editor={editor}
+            className="prose w-full h-full outline-none checked-task"
+          />
+        </div>
+        
+        {/* 使い方説明 */}
+        <div style={{ 
+          marginTop: '16px', 
+          padding: '12px', 
+          backgroundColor: '#dcfce7', 
+          borderRadius: '8px',
+          fontSize: '14px'
+        }}>
+          <p style={{ fontWeight: '600', marginBottom: '8px' }}>🎯 動作確認方法:</p>
+          <ol style={{ paddingLeft: '20px', lineHeight: '1.5' }}>
+            <li>親タスク1の子タスク1-1と1-2を両方完了してみてください</li>
+            <li>親タスク1が自動で完了状態になります</li>
+            <li>完了した子タスクのチェックを外すと親タスクも未完了に戻ります</li>
+            <li>Tabキーで子タスクを作成できます</li>
+          </ol>
+        </div>
       </div>
-      
-      <div className="border border-gray-300 rounded-md p-4">
-        <EditorContent
-          editor={editor}
-          className="prose w-full h-full outline-none checked-task"
-        />
-      </div>
-      
-      {/* 使い方説明 */}
-      <div className="mt-4 p-3 bg-green-50 rounded text-sm">
-        <p className="font-medium mb-2">🎯 動作確認方法:</p>
-        <ol className="list-decimal list-inside space-y-1 text-gray-700">
-          <li>親タスク1の子タスク1-1と1-2を両方完了してみてください</li>
-          <li>親タスク1が自動で完了状態になります</li>
-          <li>完了した子タスクのチェックを外すと親タスクも未完了に戻ります</li>
-          <li>Tabキーで子タスクを作成できます</li>
-        </ol>
+
+      {/* 右側 */}
+      <div style={{ 
+        width: '40%', 
+        backgroundColor: 'white', 
+        borderLeft: '1px solid #d1d5db',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        {/* ヘッダー */}
+        <div style={{ 
+          padding: '16px', 
+          borderBottom: '1px solid #d1d5db', 
+          backgroundColor: '#f9fafb' 
+        }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '600' }}>📋 右側パネル</h2>
+        </div>
+        
+        {/* コンテンツ */}
+        <div style={{ flex: 1, padding: '16px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <h1 style={{ 
+              fontSize: '48px', 
+              fontWeight: 'bold', 
+              color: '#2563eb', 
+              marginBottom: '16px' 
+            }}>
+              Hello World
+            </h1>
+            <p style={{ color: '#6b7280', marginBottom: '24px' }}>
+              右側のコンテンツエリアです
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ 
+                padding: '16px', 
+                backgroundColor: '#dbeafe', 
+                borderRadius: '8px' 
+              }}>
+                <p style={{ color: '#1e40af', fontWeight: '600' }}>詳細情報</p>
+                <p style={{ color: '#2563eb', fontSize: '14px', marginTop: '4px' }}>
+                  ここに詳細情報が表示されます
+                </p>
+              </div>
+              
+              <div style={{ 
+                padding: '16px', 
+                backgroundColor: '#dcfce7', 
+                borderRadius: '8px' 
+              }}>
+                <p style={{ color: '#166534', fontWeight: '600' }}>統計情報</p>
+                <p style={{ color: '#16a34a', fontSize: '14px', marginTop: '4px' }}>
+                  総タスク: {stats.totalTasks}<br />
+                  完了済み: {stats.completedTasks}
+                </p>
+              </div>
+              
+              <div style={{ 
+                padding: '16px', 
+                backgroundColor: '#fef3c7', 
+                borderRadius: '8px' 
+              }}>
+                <p style={{ color: '#92400e', fontWeight: '600' }}>進捗率</p>
+                <p style={{ color: '#d97706', fontSize: '14px', marginTop: '4px' }}>
+                  {stats.totalTasks > 0 ? 
+                    `${Math.round((stats.completedTasks / stats.totalTasks) * 100)}%` : 
+                    '0%'
+                  } 完了
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* フッター */}
+        <div style={{ 
+          padding: '16px', 
+          borderTop: '1px solid #d1d5db', 
+          backgroundColor: '#f9fafb' 
+        }}>
+          <button style={{
+            width: '100%',
+            padding: '8px 16px',
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer'
+          }}>
+            アクション
+          </button>
+        </div>
       </div>
     </div>
   );
