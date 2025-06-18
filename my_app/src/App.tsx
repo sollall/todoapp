@@ -90,9 +90,21 @@ export default function App() {
   });
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
-      {/* 左側 */}
-      <div style={{ width: '60%', padding: '24px', overflow: 'auto' }}>
+    <div style={{ 
+      display: 'flex', 
+      height: '100vh', 
+      width: '100vw',
+      backgroundColor: '#f9fafb',
+      margin: 0,
+      padding: 0
+    }}>
+      {/* 左側 - 可変幅（右側を除いた残り全部） */}
+      <div style={{ 
+        flex: 1,
+        padding: '24px', 
+        overflow: 'auto',
+        minWidth: 0  // flexboxで必要
+      }}>
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>
           📝 親子タスク連動エディタ
         </h1>
@@ -142,9 +154,9 @@ export default function App() {
         </div>
       </div>
 
-      {/* 右側 */}
+      {/* 右側 - 固定幅 */}
       <div style={{ 
-        width: '40%', 
+        width: '400px',  // 固定幅
         backgroundColor: 'white', 
         borderLeft: '1px solid #d1d5db',
         display: 'flex',
@@ -171,7 +183,7 @@ export default function App() {
               Hello World
             </h1>
             <p style={{ color: '#6b7280', marginBottom: '24px' }}>
-              右側のコンテンツエリアです
+              右側のコンテンツエリアです（固定幅400px）
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
