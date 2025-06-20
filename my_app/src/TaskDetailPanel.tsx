@@ -40,7 +40,6 @@ interface ColorStyle {
 const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ 
   rightPanelContent, 
   selectedTaskInfo, 
-  taskDetailsDB,
   onReset,
   onTestClick 
 }) => {

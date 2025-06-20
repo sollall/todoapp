@@ -396,7 +396,6 @@ export default function App() {
       <TaskDetailPanel
         rightPanelContent={rightPanelContent}
         selectedTaskInfo={selectedTaskInfo}
-        taskDetailsDB={taskDetailsDB}
         onReset={handleReset}
         onTestClick={handleTestClick}
       />
