@@ -295,48 +295,222 @@ export default function App() {
     onCreate: ({ editor }) => {
       addLog('🚀 エディター作成完了');
       
-      // 直接イベントリスナーを追加（確実に動作するように）
-      const editorElement = editor.view.dom;
-      
-      const handleClick = (event: Event) => {
-        const target = event.target as HTMLElement;
+      // closest()に頼らない確実な方法を実装
+      setTimeout(() => {
+        const editorElement = editor.view.dom as HTMLElement;
         
-        addLog('🔍 クリックイベント発生');
-        addLog(`📍 ターゲット要素: ${target.tagName}`);
-        
-        // チェックボックスのクリックは無視
-        if (target.tagName.toLowerCase() === 'input') {
-          addLog('❌ チェックボックスクリック - 処理をスキップ');
-          return;
-        }
-
-        // タスクアイテムを探す
-        const taskItem = target.closest('li[data-type="taskItem"]');
-        
-        if (taskItem) {
-          addLog('✅ タスクアイテム発見');
+        // 全てのタスクアイテムを取得し、それぞれに直接イベントリスナーを設定
+        const setupTaskItemListeners = () => {
+          // 既存のリスナーをクリア
+          editorElement.removeEventListener('click', globalClickHandler);
           
-          // タスクのテキストを取得
-          const taskText = Array.from(taskItem.childNodes)
-            .filter(node => node.nodeType === Node.TEXT_NODE || 
-                           (node.nodeType === Node.ELEMENT_NODE && !(node as Element).matches('ul')))
-            .map(node => node.textContent)
-            .join('')
-            .trim();
-
-          if (taskText) {
-            addLog(`📝 抽出されたテキスト: "${taskText}"`);
-            handleTaskSelection(taskText);
-          } else {
-            addLog('⚠️ テキストが空です');
+          const taskItems = editorElement.querySelectorAll('li[data-type="taskItem"]');
+          addLog(`🎯 発見されたタスクアイテム: ${taskItems.length}個`);
+          
+          taskItems.forEach((taskItem, index) => {
+            const element = taskItem as HTMLElement;
+            
+            // 各タスクアイテムの詳細をログ
+            const taskText = Array.from(element.childNodes)
+              .filter(node => node.nodeType === Node.TEXT_NODE || 
+                             (node.nodeType === Node.ELEMENT_NODE && !(node as Element).matches('ul')))
+              .map(node => node.textContent)
+              .join('')
+              .trim();
+            
+            addLog(`  [${index}] "${taskText}" - 直接リスナー追加`);
+            
+            // 既存のリスナーを削除してから新しいリスナーを追加
+            element.removeEventListener('click', directTaskHandler);
+            element.addEventListener('click', directTaskHandler, true);
+            
+            // より確実にするため、子要素にもリスナーを追加
+            const textNodes = element.querySelectorAll('*:not(ul):not(li)');
+            textNodes.forEach(child => {
+              (child as HTMLElement).removeEventListener('click', directTaskHandler);
+              (child as HTMLElement).addEventListener('click', directTaskHandler, true);
+            });
+          });
+          
+          // さらに保険として、グローバルハンドラーも設定
+          editorElement.addEventListener('click', globalClickHandler, true);
+        };
+        
+        // 直接的なタスクハンドラー
+        const directTaskHandler = (event: Event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          
+          const target = event.target as HTMLElement;
+          addLog('🎯 直接的なタスクハンドラー起動');
+          
+          // チェックボックスの場合はスキップ
+          if (target.tagName.toLowerCase() === 'input') {
+            addLog('❌ チェックボックス - スキップ');
+            return;
           }
-        } else {
-          addLog('❌ タスクアイテムが見つかりません');
-        }
-      };
-      
-      editorElement.addEventListener('click', handleClick);
-      addLog('👂 クリックリスナー設定完了');
+          
+          // currentTargetまたはtargetからタスクアイテムを特定
+          let taskElement = event.currentTarget as HTMLElement;
+          
+          // currentTargetがli[data-type="taskItem"]でない場合、親を探す
+          if (taskElement.tagName !== 'LI' || taskElement.getAttribute('data-type') !== 'taskItem') {
+            taskElement = target.closest('li[data-type="taskItem"]') as HTMLElement;
+          }
+          
+          if (!taskElement) {
+            // 手動で親要素を探索
+            let current = target;
+            while (current && current !== editorElement) {
+              if (current.tagName === 'LI' && current.getAttribute('data-type') === 'taskItem') {
+                taskElement = current;
+                break;
+              }
+              current = current.parentElement;
+            }
+          }
+          
+          if (taskElement) {
+            const taskText = Array.from(taskElement.childNodes)
+              .filter(node => node.nodeType === Node.TEXT_NODE || 
+                             (node.nodeType === Node.ELEMENT_NODE && !(node as Element).matches('ul')))
+              .map(node => node.textContent)
+              .join('')
+              .trim();
+            
+            if (taskText) {
+              addLog(`✅ 直接ハンドラーで取得成功: "${taskText}"`);
+              handleTaskSelection(taskText);
+              return;
+            }
+          }
+          
+          addLog('⚠️ 直接ハンドラーで取得失敗');
+        };
+        
+        // 全体的なクリックハンドラー（フォールバック）
+        const globalClickHandler = (event: Event) => {
+          const target = event.target as HTMLElement;
+          
+          addLog('🔍 グローバルハンドラー起動');
+          addLog(`📍 ターゲット: ${target.tagName}.${target.className}`);
+          
+          // チェックボックスの場合はスキップ
+          if (target.tagName.toLowerCase() === 'input') {
+            addLog('❌ チェックボックス - スキップ');
+            return;
+          }
+          
+          // 方法1: 標準的なclosest()
+          let taskItem = target.closest('li[data-type="taskItem"]') as HTMLElement;
+          if (taskItem) {
+            addLog('✅ closest()で発見');
+          } else {
+            addLog('❌ closest()で見つからず');
+            
+            // 方法2: 手動で親要素を探索
+            let current = target;
+            let depth = 0;
+            while (current && current !== editorElement && depth < 15) {
+              addLog(`  [${depth}] ${current.tagName} data-type="${current.getAttribute('data-type') || 'なし'}"`);
+              
+              if (current.tagName === 'LI' && current.getAttribute('data-type') === 'taskItem') {
+                taskItem = current;
+                addLog(`✅ 手動探索で発見 (深度${depth})`);
+                break;
+              }
+              current = current.parentElement;
+              depth++;
+            }
+          }
+          
+          // 方法3: 既知のタスク名から推測
+          if (!taskItem && target.textContent) {
+            const knownTasks = ['親タスク1', '子タスク1-1', '子タスク1-2', '親タスク2', '子タスク2-1', '子タスク2-2', '子タスク2-3', '通常のタスク'];
+            const clickedText = target.textContent.trim();
+            
+            for (const taskName of knownTasks) {
+              if (clickedText.includes(taskName) || taskName.includes(clickedText)) {
+                addLog(`✅ テキスト推測で発見: "${taskName}"`);
+                handleTaskSelection(taskName);
+                return;
+              }
+            }
+          }
+          
+          if (taskItem) {
+            const taskText = Array.from(taskItem.childNodes)
+              .filter(node => node.nodeType === Node.TEXT_NODE || 
+                             (node.nodeType === Node.ELEMENT_NODE && !(node as Element).matches('ul')))
+              .map(node => node.textContent)
+              .join('')
+              .trim();
+            
+            if (taskText) {
+              addLog(`✅ グローバルハンドラーで取得成功: "${taskText}"`);
+              handleTaskSelection(taskText);
+            } else {
+              addLog('⚠️ テキスト抽出失敗');
+            }
+          } else {
+            addLog('❌ 全ての方法で失敗');
+            
+            // 最後の手段: エディター内の全てのタスクアイテムから最も近いものを探す
+            const allTaskItems = editorElement.querySelectorAll('li[data-type="taskItem"]');
+            if (allTaskItems.length > 0) {
+              const targetRect = target.getBoundingClientRect();
+              let closestTask = null;
+              let minDistance = Infinity;
+              
+              allTaskItems.forEach((item) => {
+                const itemRect = item.getBoundingClientRect();
+                const distance = Math.sqrt(
+                  Math.pow(targetRect.left - itemRect.left, 2) + 
+                  Math.pow(targetRect.top - itemRect.top, 2)
+                );
+                
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestTask = item;
+                }
+              });
+              
+              if (closestTask && minDistance < 100) { // 100px以内なら有効とみなす
+                const taskText = Array.from(closestTask.childNodes)
+                  .filter(node => node.nodeType === Node.TEXT_NODE || 
+                                 (node.nodeType === Node.ELEMENT_NODE && !(node as Element).matches('ul')))
+                  .map(node => node.textContent)
+                  .join('')
+                  .trim();
+                
+                if (taskText) {
+                  addLog(`✅ 距離ベースで発見: "${taskText}" (距離: ${minDistance.toFixed(2)}px)`);
+                  handleTaskSelection(taskText);
+                }
+              }
+            }
+          }
+        };
+        
+        // 初期設定
+        setupTaskItemListeners();
+        
+        // エディター更新時にリスナーを再設定
+        const observer = new MutationObserver(() => {
+          setTimeout(() => {
+            addLog('🔄 DOM変更検出 - リスナー再設定');
+            setupTaskItemListeners();
+          }, 50);
+        });
+        
+        observer.observe(editorElement, {
+          childList: true,
+          subtree: true,
+          attributes: true
+        });
+        
+        addLog('👂 全てのイベントリスナー設定完了');
+      }, 300); // 300ms遅延で確実にDOM準備完了を待つ
     }
   });
 
