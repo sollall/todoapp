@@ -50,6 +50,17 @@ export default function App() {
   const [rightPanelContent, setRightPanelContent] = useState<string>('default');
   const [selectedTaskInfo, setSelectedTaskInfo] = useState<TaskInfo | null>(null);
   const [taskList, setTaskList] = useState<TaskInfo[]>([]);
+  
+  // デバッグログの状態管理
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  
+  // ログ追加関数
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logMessage = `[${timestamp}] ${message}`;
+    setDebugLogs(prev => [logMessage, ...prev].slice(0, 10)); // 最新10件を保持
+    console.log(logMessage); // コンソールにも出力
+  };
 
   // タスクの詳細情報データベース
   const taskDetailsDB: TaskDetailsDB = {
@@ -129,12 +140,14 @@ export default function App() {
 
   // カスタムタスククリックハンドラー - taskListとtaskDetailsDBを使用
   const handleTaskSelection = (taskText: string) => {
-    console.log('🎯 タスク選択:', taskText);
+    addLog(`🎯 タスク選択: ${taskText}`);
     
     // タスクリストから対応するタスクを検索
     const matchedTask = taskList.find(task => task.text === taskText);
     
     if (matchedTask) {
+      addLog(`✅ マッチするタスクを発見: ${taskText}`);
+      
       // 詳細情報を取得
       const details = taskDetailsDB[taskText] || {
         tags: ['情報なし'],
@@ -153,13 +166,14 @@ export default function App() {
       });
       
       setRightPanelContent('task-detail');
-      console.log('📋 タスク詳細設定完了:', taskText);
+      addLog(`📋 タスク詳細設定完了: ${taskText}`);
     } else {
-      console.log('❌ マッチするタスクが見つかりません:', taskText);
-      console.log('現在のタスクリスト:', taskList);
+      addLog(`❌ マッチするタスクが見つかりません: ${taskText}`);
+      addLog(`📝 現在のタスク数: ${taskList.length}`);
     }
   };
 
+  // 🔥 修正版：直接ハンドラーを使用してクリックハンドラーを管理
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -231,6 +245,7 @@ export default function App() {
       if (taskLists.length > 0) {
         const extractedTasks = extractTasks(taskLists[0]);
         setTaskList(extractedTasks);
+        addLog(`📝 タスクリスト更新: ${extractedTasks.length}件のタスク`);
       }
       
       // 親タスクの自動完了処理
@@ -265,6 +280,7 @@ export default function App() {
       if (hasChanges) {
         const updatedHtml = doc.body.innerHTML;
         editor.commands.setContent(updatedHtml, false);
+        addLog('🔄 親タスクの自動完了処理を実行');
       }
       
       // 統計を更新
@@ -275,31 +291,71 @@ export default function App() {
         totalTasks: allTasks.length,
         completedTasks: completedTasks.length
       });
-
-      // カスタムフックからの再設定関数を呼び出し
-      reattachToEditor();
     },
     onCreate: ({ editor }) => {
-      console.log('🚀 エディター作成完了');
+      addLog('🚀 エディター作成完了');
+      
+      // 直接イベントリスナーを追加（確実に動作するように）
+      const editorElement = editor.view.dom;
+      
+      const handleClick = (event: Event) => {
+        const target = event.target as HTMLElement;
+        
+        addLog('🔍 クリックイベント発生');
+        addLog(`📍 ターゲット要素: ${target.tagName}`);
+        
+        // チェックボックスのクリックは無視
+        if (target.tagName.toLowerCase() === 'input') {
+          addLog('❌ チェックボックスクリック - 処理をスキップ');
+          return;
+        }
+
+        // タスクアイテムを探す
+        const taskItem = target.closest('li[data-type="taskItem"]');
+        
+        if (taskItem) {
+          addLog('✅ タスクアイテム発見');
+          
+          // タスクのテキストを取得
+          const taskText = Array.from(taskItem.childNodes)
+            .filter(node => node.nodeType === Node.TEXT_NODE || 
+                           (node.nodeType === Node.ELEMENT_NODE && !(node as Element).matches('ul')))
+            .map(node => node.textContent)
+            .join('')
+            .trim();
+
+          if (taskText) {
+            addLog(`📝 抽出されたテキスト: "${taskText}"`);
+            handleTaskSelection(taskText);
+          } else {
+            addLog('⚠️ テキストが空です');
+          }
+        } else {
+          addLog('❌ タスクアイテムが見つかりません');
+        }
+      };
+      
+      editorElement.addEventListener('click', handleClick);
+      addLog('👂 クリックリスナー設定完了');
     }
   });
 
-  // 🔥 カスタムフックを使用してクリックハンドラーを管理
-  const { reattachToEditor } = useEditorClickHandler(editor, handleTaskSelection, true);
-
   // テスト用ボタンハンドラー
   const handleTestClick = (contentType: string): void => {
+    addLog(`🧪 テストボタンクリック: ${contentType}`);
     setRightPanelContent(contentType);
     // テスト用のタスク情報を設定
     if (contentType === 'task-detail') {
-      setSelectedTaskInfo({
+      const testTaskInfo = {
         id: 'test-1',
         text: 'テストタスク',
         completed: false,
         level: 0,
         parentId: null,
         details: taskDetailsDB['親タスク1'] // テスト用に親タスク1の詳細を使用
-      });
+      };
+      setSelectedTaskInfo(testTaskInfo);
+      addLog(`✅ テストタスク詳細を設定: ${testTaskInfo.text}`);
     }
   };
 
@@ -307,6 +363,13 @@ export default function App() {
   const handleReset = (): void => {
     setRightPanelContent('default');
     setSelectedTaskInfo(null);
+    addLog('🔄 パネルをリセット');
+  };
+
+  // ログクリアハンドラー
+  const handleClearLogs = (): void => {
+    setDebugLogs([]);
+    addLog('🗑️ ログをクリア');
   };
 
   return (
@@ -393,7 +456,7 @@ export default function App() {
           </ul>
         </div>
 
-        {/* デバッグ情報 */}
+        {/* デバッグ情報とログ表示 */}
         <div style={{
           marginTop: '16px',
           padding: '8px',
@@ -401,8 +464,15 @@ export default function App() {
           borderRadius: '6px',
           fontSize: '12px'
         }}>
-          現在の右画面: {rightPanelContent} | 選択中タスク: {selectedTaskInfo?.text || '未選択'} | 
-          タスク数: {taskList.length}
+          <div style={{ marginBottom: '8px' }}>
+            現在の右画面: {rightPanelContent} | 選択中タスク: {selectedTaskInfo?.text || '未選択'} | 
+            タスク数: {taskList.length}
+          </div>
+          
+          {/* ミニログ表示 */}
+          <div style={{ fontSize: '11px', color: '#92400e' }}>
+            <strong>最新ログ:</strong> {debugLogs[0] || 'なし'}
+          </div>
         </div>
       </div>
 
@@ -412,6 +482,8 @@ export default function App() {
         selectedTaskInfo={selectedTaskInfo}
         onReset={handleReset}
         onTestClick={handleTestClick}
+        debugLogs={debugLogs}
+        onClearLogs={handleClearLogs}
       />
     </div>
   );
