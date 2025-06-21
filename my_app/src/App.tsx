@@ -4,7 +4,12 @@ import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import React, { useState } from "react";
-import TaskDetailPanel from './TaskDetailPanel'; // 新しく作成したコンポーネントをインポート
+import TaskDetailPanel from './TaskDetailPanel';
+
+// 分離したクリックハンドラーをインポート
+import { 
+  useEditorClickHandler
+} from './taskClickHandler';
 
 // 型定義
 interface Stats {
@@ -119,6 +124,39 @@ export default function App() {
       assignee: '自分',
       estimatedTime: '5時間',
       status: '進行中'
+    }
+  };
+
+  // カスタムタスククリックハンドラー - taskListとtaskDetailsDBを使用
+  const handleTaskSelection = (taskText: string) => {
+    console.log('🎯 タスク選択:', taskText);
+    
+    // タスクリストから対応するタスクを検索
+    const matchedTask = taskList.find(task => task.text === taskText);
+    
+    if (matchedTask) {
+      // 詳細情報を取得
+      const details = taskDetailsDB[taskText] || {
+        tags: ['情報なし'],
+        priority: '未設定',
+        dueDate: '',
+        notes: '詳細情報が登録されていません。',
+        assignee: '未割り当て',
+        estimatedTime: '未定',
+        status: '不明'
+      };
+      
+      // 選択されたタスク情報を設定
+      setSelectedTaskInfo({
+        ...matchedTask,
+        details: details
+      });
+      
+      setRightPanelContent('task-detail');
+      console.log('📋 タスク詳細設定完了:', taskText);
+    } else {
+      console.log('❌ マッチするタスクが見つかりません:', taskText);
+      console.log('現在のタスクリスト:', taskList);
     }
   };
 
@@ -237,60 +275,17 @@ export default function App() {
         totalTasks: allTasks.length,
         completedTasks: completedTasks.length
       });
+
+      // カスタムフックからの再設定関数を呼び出し
+      reattachToEditor();
     },
     onCreate: ({ editor }) => {
-      // エディタ作成時にクリックイベントを設定
-      const editorElement = editor.view.dom;
-      
-      editorElement.addEventListener('click', (event) => {
-        // チェックボックスのクリックは無視
-        if ((event.target as HTMLElement).tagName.toLowerCase() === 'input') {
-          return;
-        }
-
-        // タスクアイテムを探す
-        const taskItem = (event.target as HTMLElement).closest('li[data-type="taskItem"]');
-        
-        if (taskItem) {
-          // タスクのテキストを取得
-          const taskText = Array.from(taskItem.childNodes)
-            .filter(node => node.nodeType === Node.TEXT_NODE || 
-                           (node.nodeType === Node.ELEMENT_NODE && !(node as Element).matches('ul')))
-            .map(node => node.textContent)
-            .join('')
-            .trim();
-
-          if (taskText) {
-            console.log('クリックされたタスク:', taskText);
-            
-            // タスクリストから対応するタスクを検索
-            const matchedTask = taskList.find(task => task.text === taskText);
-            
-            if (matchedTask) {
-              // 詳細情報を取得
-              const details = taskDetailsDB[taskText] || {
-                tags: ['情報なし'],
-                priority: '未設定',
-                dueDate: '',
-                notes: '詳細情報が登録されていません。',
-                assignee: '未割り当て',
-                estimatedTime: '未定',
-                status: '不明'
-              };
-              
-              // 選択されたタスク情報を設定
-              setSelectedTaskInfo({
-                ...matchedTask,
-                details: details
-              });
-              
-              setRightPanelContent('task-detail');
-            }
-          }
-        }
-      });
+      console.log('🚀 エディター作成完了');
     }
   });
+
+  // 🔥 カスタムフックを使用してクリックハンドラーを管理
+  const { reattachToEditor } = useEditorClickHandler(editor, handleTaskSelection, true);
 
   // テスト用ボタンハンドラー
   const handleTestClick = (contentType: string): void => {
@@ -331,7 +326,7 @@ export default function App() {
         minWidth: 0
       }}>
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>
-          📝 親子タスク連動エディタ
+          📝 親子タスク連動エディタ（カスタムフック版）
         </h1>
         
         {/* 統計表示 */}
@@ -377,7 +372,25 @@ export default function App() {
             <li>完了した子タスクのチェックを外すと親タスクも未完了に戻ります</li>
             <li>Tabキーで子タスクを作成できます</li>
             <li>🆕 タスクの文字部分をクリックすると右側に詳細が表示されます</li>
+            <li>🔥 カスタムフックでクリックハンドラーが管理されています</li>
           </ol>
+        </div>
+
+        {/* 改善点の表示 */}
+        <div style={{ 
+          marginTop: '16px', 
+          padding: '12px', 
+          backgroundColor: '#f0f9ff', 
+          borderRadius: '8px',
+          fontSize: '14px'
+        }}>
+          <p style={{ fontWeight: '600', marginBottom: '8px', color: '#0369a1' }}>🚀 実装改善点:</p>
+          <ul style={{ paddingLeft: '20px', lineHeight: '1.5', color: '#0369a1' }}>
+            <li>useEffectロジックをuseEditorClickHandlerに分離</li>
+            <li>クリックハンドラーをtaskClickHandler.tsに分離</li>
+            <li>メインコンポーネントが軽量化されました</li>
+            <li>再利用可能なカスタムフックとして実装</li>
+          </ul>
         </div>
 
         {/* デバッグ情報 */}
@@ -388,7 +401,8 @@ export default function App() {
           borderRadius: '6px',
           fontSize: '12px'
         }}>
-          現在の右画面: {rightPanelContent} | 選択中タスク: {selectedTaskInfo?.text || '未選択'}
+          現在の右画面: {rightPanelContent} | 選択中タスク: {selectedTaskInfo?.text || '未選択'} | 
+          タスク数: {taskList.length}
         </div>
       </div>
 
