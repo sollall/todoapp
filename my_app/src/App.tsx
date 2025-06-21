@@ -141,32 +141,14 @@ export default function App() {
   // カスタムタスククリックハンドラー - taskListとtaskDetailsDBを使用
   const handleTaskSelection = (taskText: string) => {
     addLog(`🎯 タスク選択: ${taskText}`);
-    
+    let details = null;
+
     // タスクリストから対応するタスクを検索
-    const matchedTask = taskList.find(task => task.text === taskText);
+    details = taskDetailsDB[taskText];
     
-    if (matchedTask) {
-      addLog(`✅ マッチするタスクを発見: ${taskText}`);
-      
-      // 詳細情報を取得
-      const details = taskDetailsDB[taskText] || {
-        tags: ['情報なし'],
-        priority: '未設定',
-        dueDate: '',
-        notes: '詳細情報が登録されていません。',
-        assignee: '未割り当て',
-        estimatedTime: '未定',
-        status: '不明'
-      };
-      
-      // 選択されたタスク情報を設定
-      setSelectedTaskInfo({
-        ...matchedTask,
-        details: details
-      });
-      
-      setRightPanelContent('task-detail');
-      addLog(`📋 タスク詳細設定完了: ${taskText}`);
+    if (details) {
+      addLog(`📋 完全一致で詳細情報を取得: ${details.tags}`);
+
     } else {
       addLog(`❌ マッチするタスクが見つかりません: ${taskText}`);
       addLog(`📝 現在のタスク数: ${taskList.length}`);
