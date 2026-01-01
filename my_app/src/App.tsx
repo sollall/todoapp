@@ -20,6 +20,11 @@ export default function App() {
   });
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
 
+  // デバッグ用: selectedTaskの変化を監視
+  useEffect(() => {
+    console.log('selectedTaskが変更されました:', selectedTask);
+  }, [selectedTask]);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -187,6 +192,30 @@ export default function App() {
             </p>
           </div>
 
+          {/* デバッグ用テストボタン */}
+          <div className="mb-4">
+            <button
+              onClick={() => {
+                console.log('テストボタンがクリックされました');
+                setSelectedTask({
+                  text: 'テストタスク',
+                  checked: false,
+                  hasChildren: true,
+                  childrenCount: 3,
+                  completedChildrenCount: 1,
+                });
+              }}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+            >
+              🧪 パネル表示テスト
+            </button>
+            {selectedTask && (
+              <span className="ml-3 text-sm text-gray-600">
+                パネルが開いています: {selectedTask.text}
+              </span>
+            )}
+          </div>
+
           <div className="border border-gray-300 rounded-md p-4">
             <EditorContent
               editor={editor}
@@ -210,7 +239,7 @@ export default function App() {
 
       {/* タスク詳細パネル（スライドイン） */}
       <div
-        className={`fixed right-0 top-0 h-full w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 top-0 h-full w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${
           selectedTask ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -291,9 +320,8 @@ export default function App() {
       {/* オーバーレイ（パネルが開いているとき） */}
       {selectedTask && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-20 transition-opacity duration-300"
+          className="fixed inset-0 bg-black bg-opacity-20 transition-opacity duration-300 z-40"
           onClick={() => setSelectedTask(null)}
-          style={{ zIndex: -1 }}
         />
       )}
     </div>
