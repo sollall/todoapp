@@ -115,10 +115,14 @@ export default function App() {
   // タスククリック時のイベントハンドラー
   useEffect(() => {
     const handleTaskClick = (e: Event) => {
+      console.log('クリックイベント発生:', e.target);
       const target = e.target as HTMLElement;
       const taskItem = target.closest('li[data-type="taskItem"]');
 
+      console.log('タスクアイテム:', taskItem);
+
       if (taskItem && !target.closest('input[type="checkbox"]')) {
+        console.log('タスク詳細を表示します');
         const taskText = taskItem.textContent?.trim() || '';
         const isChecked = taskItem.getAttribute('data-checked') === 'true';
         const childTaskList = taskItem.querySelector('ul[data-type="taskList"]');
@@ -134,23 +138,34 @@ export default function App() {
           ).length;
         }
 
-        setSelectedTask({
+        const taskDetail = {
           text: taskText,
           checked: isChecked,
           hasChildren: childrenCount > 0,
           childrenCount,
           completedChildrenCount,
-        });
+        };
+
+        console.log('タスク詳細:', taskDetail);
+        setSelectedTask(taskDetail);
+      } else {
+        console.log('チェックボックスまたは非タスク要素がクリックされました');
       }
     };
 
     const editorElement = document.querySelector('.tiptap');
+    console.log('エディタ要素:', editorElement);
+
     if (editorElement) {
+      console.log('イベントリスナーを追加しました');
       editorElement.addEventListener('click', handleTaskClick);
+    } else {
+      console.warn('エディタ要素が見つかりません');
     }
 
     return () => {
       if (editorElement) {
+        console.log('イベントリスナーを削除しました');
         editorElement.removeEventListener('click', handleTaskClick);
       }
     };
