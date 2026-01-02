@@ -4,9 +4,12 @@ import { useState, useEffect } from 'react';
 import { useTaskEditor } from './hooks/useTaskEditor';
 import { TaskStats } from './components/TaskStats';
 import { TaskDetailPanel } from './components/TaskDetailPanel';
+import { ThemeSwitcher } from './components/ThemeSwitcher';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import type { TaskDetail, TaskStats as TaskStatsType } from './types/task';
 
-export default function App() {
+function AppContent() {
+  const { themeConfig } = useTheme();
   const [stats, setStats] = useState<TaskStatsType>({
     totalTasks: 0,
     completedTasks: 0,
@@ -25,40 +28,47 @@ export default function App() {
   });
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      overflow: 'hidden',
+      backgroundColor: themeConfig.colors.background,
+    }}>
       {/* 左側：タスクリスト */}
       <div
         style={{
           flex: 1,
           overflowY: 'auto',
           padding: '24px',
-          borderRight: '1px solid #e5e7eb',
+          borderRight: `1px solid ${themeConfig.colors.border}`,
+          backgroundColor: themeConfig.colors.background,
         }}
       >
-        <h1 className="text-2xl font-bold mb-4">📝 親子タスク連動エディタ</h1>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+          <span style={{ fontSize: '32px', marginRight: '12px' }}>📝</span>
+          <h1 style={{
+            fontSize: '28px',
+            fontWeight: 'bold',
+            margin: 0,
+            color: themeConfig.colors.text,
+          }}>
+            タスク管理
+          </h1>
+        </div>
+
+        {/* テーマ切り替え */}
+        <div style={{ marginBottom: '20px' }}>
+          <ThemeSwitcher />
+        </div>
 
         <TaskStats stats={stats} />
 
-        {/* デバッグ用テストボタン */}
-        <div className="mb-4">
-          <button
-            onClick={() => {
-              console.log('テストボタンがクリックされました');
-              setSelectedTask({
-                text: 'テストタスク',
-                checked: false,
-                hasChildren: true,
-                childrenCount: 3,
-                completedChildrenCount: 1,
-              });
-            }}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-          >
-            🧪 詳細パネル表示テスト
-          </button>
-        </div>
-
-        <div className="border border-gray-300 rounded-md p-4">
+        <div style={{
+          border: `1px solid ${themeConfig.colors.border}`,
+          borderRadius: '12px',
+          padding: '16px',
+          backgroundColor: themeConfig.colors.surface,
+        }}>
           <EditorContent
             editor={editor}
             className="prose w-full h-full outline-none checked-task"
@@ -66,22 +76,46 @@ export default function App() {
         </div>
 
         {/* 使い方説明 */}
-        <div className="mt-4 p-3 bg-green-50 rounded text-sm">
-          <p className="font-medium mb-2">🎯 動作確認方法:</p>
-          <ol className="list-decimal list-inside space-y-1 text-gray-700">
-            <li>親タスク1の子タスク1-1と1-2を両方完了してみてください</li>
-            <li>親タスク1が自動で完了状態になります</li>
-            <li>完了した子タスクのチェックを外すと親タスクも未完了に戻ります</li>
-            <li>Tabキーで子タスクを作成できます</li>
-            <li>
-              <strong>タスクをクリックすると右側に詳細が表示されます</strong>
-            </li>
-          </ol>
+        <div style={{
+          marginTop: '16px',
+          padding: '16px',
+          backgroundColor: themeConfig.colors.surface,
+          borderRadius: '12px',
+          fontSize: '13px',
+          border: `1px solid ${themeConfig.colors.border}`,
+        }}>
+          <p style={{
+            fontWeight: '600',
+            marginBottom: '12px',
+            color: themeConfig.colors.text,
+          }}>
+            🎯 使い方
+          </p>
+          <ul style={{
+            listStyle: 'disc',
+            paddingLeft: '20px',
+            margin: 0,
+            color: themeConfig.colors.textSecondary,
+            lineHeight: '1.8',
+          }}>
+            <li>子タスクをすべて完了すると親タスクも自動完了</li>
+            <li>Tabキーで子タスクを作成</li>
+            <li>タスクをクリックすると右側に詳細が表示</li>
+            <li>上部のボタンでテーマを切り替えてデザインを変更できます</li>
+          </ul>
         </div>
       </div>
 
       {/* 右側：タスク詳細パネル */}
       <TaskDetailPanel selectedTask={selectedTask} />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
