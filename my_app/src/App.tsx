@@ -34,8 +34,73 @@ export default function App() {
       TaskList,
       TaskItem.configure({
         nested: true,
+        HTMLAttributes: {
+          class: 'task-item-clickable',
+        },
+        onReadOnlyChecked: (node, checked) => {
+          return checked;
+        },
       }),
     ],
+    editorProps: {
+      handleClickOn: (view, pos, node, nodePos, event) => {
+        // タスクアイテムがクリックされたかチェック
+        if (node.type.name === 'taskItem') {
+          const target = event.target as HTMLElement;
+
+          // チェックボックスのクリックは無視
+          if (target.tagName === 'INPUT' && target.getAttribute('type') === 'checkbox') {
+            return false;
+          }
+
+          console.log('=== タスクアイテムがクリックされました ===');
+          console.log('ノード:', node);
+
+          // タスクのテキストを取得
+          let taskText = '';
+          node.content.forEach((child) => {
+            if (child.type.name === 'paragraph' || child.type.name === 'text') {
+              taskText += child.textContent;
+            }
+          });
+
+          // チェック状態を取得
+          const isChecked = node.attrs.checked || false;
+
+          // 子タスクを数える
+          let childrenCount = 0;
+          let completedChildrenCount = 0;
+
+          node.content.forEach((child) => {
+            if (child.type.name === 'taskList') {
+              child.content.forEach((taskItem) => {
+                if (taskItem.type.name === 'taskItem') {
+                  childrenCount++;
+                  if (taskItem.attrs.checked) {
+                    completedChildrenCount++;
+                  }
+                }
+              });
+            }
+          });
+
+          const taskDetail = {
+            text: taskText.trim() || 'タスク',
+            checked: isChecked,
+            hasChildren: childrenCount > 0,
+            childrenCount,
+            completedChildrenCount,
+          };
+
+          console.log('タスク詳細:', taskDetail);
+          setSelectedTask(taskDetail);
+
+          // イベントを処理したことを示す
+          return true;
+        }
+        return false;
+      },
+    },
     content: `
         <ul data-type="taskList">
           <li data-type="taskItem" data-checked="false">親タスク1
@@ -116,99 +181,6 @@ export default function App() {
       });
     },
   });
-
-  // タスククリック時のイベントハンドラー
-  useEffect(() => {
-    if (!editor) {
-      console.warn('エディタがまだ準備できていません');
-      return;
-    }
-
-    // エディタのDOMが準備されるまで少し待つ
-    const timer = setTimeout(() => {
-      // editor.view.domを使って確実にエディタのDOM要素を取得
-      const editorElement = editor.view.dom as HTMLElement;
-      console.log('エディタDOM要素を取得:', editorElement);
-
-      const handleTaskClick = (e: MouseEvent) => {
-        console.log('=== クリックイベント発生 ===');
-        console.log('クリック位置:', e.target);
-
-        const target = e.target as HTMLElement;
-
-        // チェックボックスをクリックした場合は何もしない
-        if (target.tagName === 'INPUT' && target.getAttribute('type') === 'checkbox') {
-          console.log('チェックボックスがクリックされました');
-          return;
-        }
-
-        const taskItem = target.closest('li[data-type="taskItem"]');
-        console.log('最も近いタスクアイテム:', taskItem);
-
-        if (taskItem) {
-          console.log('✓ タスクアイテムを検出しました');
-
-          // タスクのテキストを取得（子タスクのテキストを除外）
-          let taskText = '';
-          const firstChild = taskItem.firstChild;
-          if (firstChild) {
-            // ラベル（チェックボックス）の次のdivからテキストを取得
-            const contentDiv = taskItem.querySelector(':scope > div');
-            if (contentDiv) {
-              // 子タスクリストを除いたテキストのみ取得
-              const clone = contentDiv.cloneNode(true) as HTMLElement;
-              const nestedList = clone.querySelector('ul[data-type="taskList"]');
-              if (nestedList) {
-                nestedList.remove();
-              }
-              taskText = clone.textContent?.trim() || '';
-            } else {
-              taskText = taskItem.textContent?.trim() || '';
-            }
-          }
-
-          const isChecked = taskItem.getAttribute('data-checked') === 'true';
-          const childTaskList = taskItem.querySelector(':scope > div > ul[data-type="taskList"]');
-
-          let childrenCount = 0;
-          let completedChildrenCount = 0;
-
-          if (childTaskList) {
-            const childTasks = childTaskList.querySelectorAll(':scope > li[data-type="taskItem"]');
-            childrenCount = childTasks.length;
-            completedChildrenCount = Array.from(childTasks).filter(
-              child => child.getAttribute('data-checked') === 'true'
-            ).length;
-          }
-
-          const taskDetail = {
-            text: taskText,
-            checked: isChecked,
-            hasChildren: childrenCount > 0,
-            childrenCount,
-            completedChildrenCount,
-          };
-
-          console.log('タスク詳細をセット:', taskDetail);
-          setSelectedTask(taskDetail);
-        } else {
-          console.log('タスクアイテムが見つかりませんでした');
-        }
-      };
-
-      console.log('イベントリスナーを追加します');
-      editorElement.addEventListener('click', handleTaskClick as EventListener);
-
-      return () => {
-        console.log('イベントリスナーを削除します');
-        editorElement.removeEventListener('click', handleTaskClick as EventListener);
-      };
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [editor]);
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
