@@ -46,13 +46,6 @@ export default function App() {
       handleClickOn: (view, pos, node, nodePos, event) => {
         // タスクアイテムがクリックされたかチェック
         if (node.type.name === 'taskItem') {
-          const target = event.target as HTMLElement;
-
-          // チェックボックスのクリックは無視
-          if (target.tagName === 'INPUT' && target.getAttribute('type') === 'checkbox') {
-            return false;
-          }
-
           console.log('=== タスクアイテムがクリックされました ===');
           console.log('ノード:', node);
 
@@ -95,8 +88,8 @@ export default function App() {
           console.log('タスク詳細:', taskDetail);
           setSelectedTask(taskDetail);
 
-          // イベントを処理したことを示す
-          return true;
+          // チェックボックスのクリックも処理を継続させる
+          return false;
         }
         return false;
       },
@@ -122,28 +115,28 @@ export default function App() {
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       const doc = new DOMParser().parseFromString(html, 'text/html');
-      
+
       // 親タスクの自動完了処理
       const parentTasks = doc.querySelectorAll('li[data-type="taskItem"]');
       let hasChanges = false;
-      
+
       parentTasks.forEach(parentTask => {
         // 直下の子タスクリストを取得
         const childTaskList = parentTask.querySelector('ul[data-type="taskList"]');
-        
+
         if (childTaskList) {
           // 直下の子タスクのみを取得（孫タスクは除外）
           const childTasks = childTaskList.querySelectorAll(':scope > li[data-type="taskItem"]');
-          
+
           if (childTasks.length > 0) {
             // すべての子タスクが完了しているかチェック
-            const allChildrenCompleted = Array.from(childTasks).every(child => 
+            const allChildrenCompleted = Array.from(childTasks).every(child =>
               child.getAttribute('data-checked') === 'true'
             );
-            
+
             // 親タスクの現在の状態
             const parentChecked = parentTask.getAttribute('data-checked') === 'true';
-            
+
             // 子タスクがすべて完了していて、親が未完了の場合
             if (allChildrenCompleted && !parentChecked) {
               parentTask.setAttribute('data-checked', 'true');
@@ -157,27 +150,83 @@ export default function App() {
           }
         }
       });
-      
+
       // 変更があった場合、エディタの内容を更新
       if (hasChanges) {
         const updatedHtml = doc.body.innerHTML;
         // 無限ループを防ぐため、一時的にonUpdateを無効化
         editor.commands.setContent(updatedHtml, false);
       }
-      
+
       // 統計を更新
       const allTasks = doc.querySelectorAll('li[data-type="taskItem"]');
       const completedTasks = doc.querySelectorAll('li[data-type="taskItem"][data-checked="true"]');
-      
+
       setStats({
         totalTasks: allTasks.length,
         completedTasks: completedTasks.length
       });
-      
+
       console.log('タスク統計:', {
         total: allTasks.length,
         completed: completedTasks.length,
         hasAutoUpdates: hasChanges
+      });
+
+      // 選択中のタスクが更新された場合、詳細パネルも更新
+      setSelectedTask(currentTask => {
+        if (!currentTask) return null;
+
+        // 選択中のタスクをエディタから探す
+        let updatedTask: TaskDetail | null = null;
+
+        editor.state.doc.descendants((node) => {
+          if (node.type.name === 'taskItem') {
+            // タスクのテキストを取得
+            let taskText = '';
+            node.content.forEach((child) => {
+              if (child.type.name === 'paragraph' || child.type.name === 'text') {
+                taskText += child.textContent;
+              }
+            });
+
+            // 選択中のタスクと一致するか確認
+            if (taskText.trim() === currentTask.text) {
+              // チェック状態を取得
+              const isChecked = node.attrs.checked || false;
+
+              // 子タスクを数える
+              let childrenCount = 0;
+              let completedChildrenCount = 0;
+
+              node.content.forEach((child) => {
+                if (child.type.name === 'taskList') {
+                  child.content.forEach((taskItem) => {
+                    if (taskItem.type.name === 'taskItem') {
+                      childrenCount++;
+                      if (taskItem.attrs.checked) {
+                        completedChildrenCount++;
+                      }
+                    }
+                  });
+                }
+              });
+
+              updatedTask = {
+                text: taskText.trim(),
+                checked: isChecked,
+                hasChildren: childrenCount > 0,
+                childrenCount,
+                completedChildrenCount,
+              };
+
+              console.log('選択中のタスクを更新:', updatedTask);
+              return false; // 探索を停止
+            }
+          }
+        });
+
+        return updatedTask || currentTask;
       });
     },
   });
