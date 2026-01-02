@@ -39,19 +39,67 @@ export function useTaskEditor({
       }),
     ],
     editorProps: {
-      handleClickOn: (_view, _pos, node, _nodePos, _event) => {
-        if (node.type.name === 'taskItem') {
-          console.log('=== タスクアイテムがクリックされました ===');
+      handleDOMEvents: {
+        click: (view, event) => {
+          const target = event.target as HTMLElement;
 
-          const taskDetail = extractTaskDetail(node);
-          console.log('タスク詳細:', taskDetail);
+          // チェックボックスのクリックは通常の処理を継続
+          if (target.tagName === 'INPUT' && target.getAttribute('type') === 'checkbox') {
+            // チェックボックスの処理後にタスク詳細も更新するため、
+            // タスクアイテムを探す
+            const taskItem = target.closest('li[data-type="taskItem"]');
+            if (taskItem) {
+              // チェックボックスの状態変更後にタスク詳細を更新するため、
+              // 少し遅延させる
+              setTimeout(() => {
+                const pos = view.posAtDOM(taskItem, 0);
+                const node = view.state.doc.nodeAt(pos);
+                if (node && node.type.name === 'taskItem') {
+                  const taskDetail = extractTaskDetail(node);
+                  console.log('チェックボックスクリック後のタスク詳細:', taskDetail);
+                  onTaskSelect(taskDetail);
+                }
+              }, 10);
+            }
+            return false; // 通常の処理を継続
+          }
 
-          onTaskSelect(taskDetail);
+          // タスクアイテムを探す（最も近いものを取得）
+          const taskItem = target.closest('li[data-type="taskItem"]');
 
-          // チェックボックスのクリックも処理を継続させる
-          return false;
-        }
-        return false;
+          if (taskItem) {
+            console.log('=== タスクアイテムがクリックされました（DOM） ===');
+
+            try {
+              // DOM要素からProseMirrorのポジションを取得
+              const pos = view.posAtDOM(taskItem, 0);
+
+              // そのポジションからノードを取得
+              const $pos = view.state.doc.resolve(pos);
+
+              // 最も近いtaskItemノードを探す
+              let taskNode = null;
+              for (let d = $pos.depth; d > 0; d--) {
+                const node = $pos.node(d);
+                if (node.type.name === 'taskItem') {
+                  taskNode = node;
+                  break;
+                }
+              }
+
+              if (taskNode) {
+                const taskDetail = extractTaskDetail(taskNode);
+                console.log('クリックされたタスク詳細:', taskDetail);
+                onTaskSelect(taskDetail);
+                return true; // イベントを処理した
+              }
+            } catch (error) {
+              console.error('タスク詳細の取得に失敗:', error);
+            }
+          }
+
+          return false; // イベントを継続
+        },
       },
     },
     content: `
