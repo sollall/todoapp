@@ -39,67 +39,60 @@ export function useTaskEditor({
       }),
     ],
     editorProps: {
-      handleDOMEvents: {
-        click: (view, event) => {
-          const target = event.target as HTMLElement;
+      handleClickOn: (view, pos, node, _nodePos, event) => {
+        console.log('=== handleClickOn 呼び出し ===');
+        console.log('pos:', pos);
+        console.log('node type:', node.type.name);
 
-          // チェックボックスのクリックは通常の処理を継続
-          if (target.tagName === 'INPUT' && target.getAttribute('type') === 'checkbox') {
-            // チェックボックスの処理後にタスク詳細も更新するため、
-            // タスクアイテムを探す
-            const taskItem = target.closest('li[data-type="taskItem"]');
-            if (taskItem) {
-              // チェックボックスの状態変更後にタスク詳細を更新するため、
-              // 少し遅延させる
-              setTimeout(() => {
-                const pos = view.posAtDOM(taskItem, 0);
-                const node = view.state.doc.nodeAt(pos);
-                if (node && node.type.name === 'taskItem') {
-                  const taskDetail = extractTaskDetail(node);
-                  console.log('チェックボックスクリック後のタスク詳細:', taskDetail);
-                  onTaskSelect(taskDetail);
-                }
-              }, 10);
-            }
-            return false; // 通常の処理を継続
+        const target = event.target as HTMLElement;
+
+        // チェックボックスのクリックも処理する
+        const isCheckbox = target.tagName === 'INPUT' && target.getAttribute('type') === 'checkbox';
+
+        // posからResolvedPosを取得
+        const $pos = view.state.doc.resolve(pos);
+
+        // クリックされた位置から最も近いtaskItemノードを探す
+        let taskItemNode = null;
+        for (let d = $pos.depth; d > 0; d--) {
+          const currentNode = $pos.node(d);
+          if (currentNode.type.name === 'taskItem') {
+            taskItemNode = currentNode;
+            break;
           }
+        }
 
-          // タスクアイテムを探す（最も近いものを取得）
-          const taskItem = target.closest('li[data-type="taskItem"]');
+        if (taskItemNode) {
+          console.log('✓ タスクアイテムを検出しました');
 
-          if (taskItem) {
-            console.log('=== タスクアイテムがクリックされました（DOM） ===');
+          const taskDetail = extractTaskDetail(taskItemNode);
+          console.log('タスク詳細:', taskDetail);
 
-            try {
-              // DOM要素からProseMirrorのポジションを取得
-              const pos = view.posAtDOM(taskItem, 0);
-
-              // そのポジションからノードを取得
-              const $pos = view.state.doc.resolve(pos);
-
-              // 最も近いtaskItemノードを探す
-              let taskNode = null;
-              for (let d = $pos.depth; d > 0; d--) {
-                const node = $pos.node(d);
-                if (node.type.name === 'taskItem') {
-                  taskNode = node;
+          if (isCheckbox) {
+            // チェックボックスの場合は少し遅延させて状態変更後の値を取得
+            setTimeout(() => {
+              // 再度ノードを取得して最新の状態を反映
+              const $newPos = view.state.doc.resolve(pos);
+              for (let d = $newPos.depth; d > 0; d--) {
+                const currentNode = $newPos.node(d);
+                if (currentNode.type.name === 'taskItem') {
+                  const updatedDetail = extractTaskDetail(currentNode);
+                  console.log('チェックボックス後の詳細:', updatedDetail);
+                  onTaskSelect(updatedDetail);
                   break;
                 }
               }
-
-              if (taskNode) {
-                const taskDetail = extractTaskDetail(taskNode);
-                console.log('クリックされたタスク詳細:', taskDetail);
-                onTaskSelect(taskDetail);
-                return true; // イベントを処理した
-              }
-            } catch (error) {
-              console.error('タスク詳細の取得に失敗:', error);
-            }
+            }, 10);
+          } else {
+            // 通常のクリックはすぐに反映
+            onTaskSelect(taskDetail);
           }
 
-          return false; // イベントを継続
-        },
+          // チェックボックスの場合は通常の処理も継続
+          return isCheckbox ? false : true;
+        }
+
+        return false;
       },
     },
     content: `
