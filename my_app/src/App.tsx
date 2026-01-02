@@ -119,60 +119,94 @@ export default function App() {
 
   // タスククリック時のイベントハンドラー
   useEffect(() => {
-    const handleTaskClick = (e: Event) => {
-      console.log('クリックイベント発生:', e.target);
-      const target = e.target as HTMLElement;
-      const taskItem = target.closest('li[data-type="taskItem"]');
-
-      console.log('タスクアイテム:', taskItem);
-
-      if (taskItem && !target.closest('input[type="checkbox"]')) {
-        console.log('タスク詳細を表示します');
-        const taskText = taskItem.textContent?.trim() || '';
-        const isChecked = taskItem.getAttribute('data-checked') === 'true';
-        const childTaskList = taskItem.querySelector('ul[data-type="taskList"]');
-
-        let childrenCount = 0;
-        let completedChildrenCount = 0;
-
-        if (childTaskList) {
-          const childTasks = childTaskList.querySelectorAll(':scope > li[data-type="taskItem"]');
-          childrenCount = childTasks.length;
-          completedChildrenCount = Array.from(childTasks).filter(
-            child => child.getAttribute('data-checked') === 'true'
-          ).length;
-        }
-
-        const taskDetail = {
-          text: taskText,
-          checked: isChecked,
-          hasChildren: childrenCount > 0,
-          childrenCount,
-          completedChildrenCount,
-        };
-
-        console.log('タスク詳細:', taskDetail);
-        setSelectedTask(taskDetail);
-      } else {
-        console.log('チェックボックスまたは非タスク要素がクリックされました');
-      }
-    };
-
-    const editorElement = document.querySelector('.tiptap');
-    console.log('エディタ要素:', editorElement);
-
-    if (editorElement) {
-      console.log('イベントリスナーを追加しました');
-      editorElement.addEventListener('click', handleTaskClick);
-    } else {
-      console.warn('エディタ要素が見つかりません');
+    if (!editor) {
+      console.warn('エディタがまだ準備できていません');
+      return;
     }
 
+    // エディタのDOMが準備されるまで少し待つ
+    const timer = setTimeout(() => {
+      // editor.view.domを使って確実にエディタのDOM要素を取得
+      const editorElement = editor.view.dom as HTMLElement;
+      console.log('エディタDOM要素を取得:', editorElement);
+
+      const handleTaskClick = (e: MouseEvent) => {
+        console.log('=== クリックイベント発生 ===');
+        console.log('クリック位置:', e.target);
+
+        const target = e.target as HTMLElement;
+
+        // チェックボックスをクリックした場合は何もしない
+        if (target.tagName === 'INPUT' && target.getAttribute('type') === 'checkbox') {
+          console.log('チェックボックスがクリックされました');
+          return;
+        }
+
+        const taskItem = target.closest('li[data-type="taskItem"]');
+        console.log('最も近いタスクアイテム:', taskItem);
+
+        if (taskItem) {
+          console.log('✓ タスクアイテムを検出しました');
+
+          // タスクのテキストを取得（子タスクのテキストを除外）
+          let taskText = '';
+          const firstChild = taskItem.firstChild;
+          if (firstChild) {
+            // ラベル（チェックボックス）の次のdivからテキストを取得
+            const contentDiv = taskItem.querySelector(':scope > div');
+            if (contentDiv) {
+              // 子タスクリストを除いたテキストのみ取得
+              const clone = contentDiv.cloneNode(true) as HTMLElement;
+              const nestedList = clone.querySelector('ul[data-type="taskList"]');
+              if (nestedList) {
+                nestedList.remove();
+              }
+              taskText = clone.textContent?.trim() || '';
+            } else {
+              taskText = taskItem.textContent?.trim() || '';
+            }
+          }
+
+          const isChecked = taskItem.getAttribute('data-checked') === 'true';
+          const childTaskList = taskItem.querySelector(':scope > div > ul[data-type="taskList"]');
+
+          let childrenCount = 0;
+          let completedChildrenCount = 0;
+
+          if (childTaskList) {
+            const childTasks = childTaskList.querySelectorAll(':scope > li[data-type="taskItem"]');
+            childrenCount = childTasks.length;
+            completedChildrenCount = Array.from(childTasks).filter(
+              child => child.getAttribute('data-checked') === 'true'
+            ).length;
+          }
+
+          const taskDetail = {
+            text: taskText,
+            checked: isChecked,
+            hasChildren: childrenCount > 0,
+            childrenCount,
+            completedChildrenCount,
+          };
+
+          console.log('タスク詳細をセット:', taskDetail);
+          setSelectedTask(taskDetail);
+        } else {
+          console.log('タスクアイテムが見つかりませんでした');
+        }
+      };
+
+      console.log('イベントリスナーを追加します');
+      editorElement.addEventListener('click', handleTaskClick as EventListener);
+
+      return () => {
+        console.log('イベントリスナーを削除します');
+        editorElement.removeEventListener('click', handleTaskClick as EventListener);
+      };
+    }, 100);
+
     return () => {
-      if (editorElement) {
-        console.log('イベントリスナーを削除しました');
-        editorElement.removeEventListener('click', handleTaskClick);
-      }
+      clearTimeout(timer);
     };
   }, [editor]);
 
