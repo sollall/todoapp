@@ -1,5 +1,5 @@
 import type { Node } from '@tiptap/pm/model';
-import type { TaskDetail } from '../types/task';
+import type { TaskDetail, TaskProgress, TaskProgressItem } from '../types/task';
 
 /**
  * Tiptapノードからタスクのテキストを抽出
@@ -133,4 +133,109 @@ export function calculateTaskStats(html: string): {
     totalTasks: allTasks.length,
     completedTasks: completedTasks.length,
   };
+}
+
+/**
+ * 階層構造を考慮したタスク進捗を計算
+ */
+export function calculateTaskProgress(html: string): TaskProgress {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  // ルートレベルのタスクリストを取得
+  const rootTaskList = doc.querySelector('ul[data-type="taskList"]');
+
+  if (!rootTaskList) {
+    return { overall: 0, items: [] };
+  }
+
+  // ルートレベルのタスクアイテムを取得
+  const rootTasks = Array.from(rootTaskList.querySelectorAll(':scope > li[data-type="taskItem"]'));
+
+  if (rootTasks.length === 0) {
+    return { overall: 0, items: [] };
+  }
+
+  // 各ルートタスクの重み（均等に分割）
+  const rootWeight = 100 / rootTasks.length;
+
+  // 各タスクの進捗を計算
+  const items: TaskProgressItem[] = rootTasks.map(taskElement =>
+    calculateTaskItemProgress(taskElement as Element, rootWeight)
+  );
+
+  // 全体の進捗を計算
+  const overall = items.reduce((sum, item) => sum + (item.weight * item.progress / 100), 0);
+
+  return {
+    overall: Math.round(overall),
+    items,
+  };
+}
+
+/**
+ * 個別のタスクアイテムの進捗を再帰的に計算
+ */
+function calculateTaskItemProgress(taskElement: Element, weight: number): TaskProgressItem {
+  const text = getTaskText(taskElement);
+  const isChecked = taskElement.getAttribute('data-checked') === 'true';
+
+  // 子タスクリストを取得
+  const childTaskList = taskElement.querySelector(':scope > div > ul[data-type="taskList"]');
+
+  if (!childTaskList) {
+    // 子タスクがない場合、完了していれば100%、未完了なら0%
+    return {
+      text,
+      weight,
+      progress: isChecked ? 100 : 0,
+      children: [],
+    };
+  }
+
+  // 子タスクを取得
+  const childTasks = Array.from(childTaskList.querySelectorAll(':scope > li[data-type="taskItem"]'));
+
+  if (childTasks.length === 0) {
+    return {
+      text,
+      weight,
+      progress: isChecked ? 100 : 0,
+      children: [],
+    };
+  }
+
+  // 各子タスクの重み（親タスク内で均等に分割）
+  const childWeight = 100 / childTasks.length;
+
+  // 子タスクの進捗を再帰的に計算
+  const children: TaskProgressItem[] = childTasks.map(child =>
+    calculateTaskItemProgress(child as Element, childWeight)
+  );
+
+  // このタスクの進捗は子タスクの加重平均
+  const progress = children.reduce((sum, child) => sum + (child.weight * child.progress / 100), 0);
+
+  return {
+    text,
+    weight,
+    progress: Math.round(progress),
+    children,
+  };
+}
+
+/**
+ * タスクエレメントからテキストを取得（子タスクのテキストを除外）
+ */
+function getTaskText(taskElement: Element): string {
+  const contentDiv = taskElement.querySelector(':scope > div');
+  if (!contentDiv) return '';
+
+  // 子タスクリストを除外したテキストを取得
+  const clone = contentDiv.cloneNode(true) as Element;
+  const nestedList = clone.querySelector('ul[data-type="taskList"]');
+  if (nestedList) {
+    nestedList.remove();
+  }
+
+  return clone.textContent?.trim() || '';
 }

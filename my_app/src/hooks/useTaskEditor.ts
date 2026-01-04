@@ -2,23 +2,23 @@ import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import type { TaskDetail, TaskStats } from '../types/task';
+import type { TaskDetail, TaskProgress } from '../types/task';
 import {
   extractTaskDetail,
   extractTaskText,
   autoCompleteParentTasks,
-  calculateTaskStats,
+  calculateTaskProgress,
 } from '../utils/taskHelpers';
 
 interface UseTaskEditorProps {
   onTaskSelect: (task: TaskDetail) => void;
-  onStatsUpdate: (stats: TaskStats) => void;
+  onProgressUpdate: (progress: TaskProgress) => void;
   onSelectedTaskUpdate: (updater: (current: TaskDetail | null) => TaskDetail | null) => void;
 }
 
 export function useTaskEditor({
   onTaskSelect,
-  onStatsUpdate,
+  onProgressUpdate,
   onSelectedTaskUpdate,
 }: UseTaskEditorProps) {
   const editor = useEditor({
@@ -123,12 +123,12 @@ export function useTaskEditor({
         editor.commands.setContent(updatedHtml, false);
       }
 
-      // 統計を更新
-      const stats = calculateTaskStats(html);
-      onStatsUpdate(stats);
+      // 進捗を更新
+      const progress = calculateTaskProgress(html);
+      onProgressUpdate(progress);
 
-      console.log('タスク統計:', {
-        ...stats,
+      console.log('タスク進捗:', {
+        ...progress,
         hasAutoUpdates: hasChanges,
       });
 

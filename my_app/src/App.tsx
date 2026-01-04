@@ -2,17 +2,17 @@ import './styles.css';
 import { EditorContent } from '@tiptap/react';
 import { useState, useEffect } from 'react';
 import { useTaskEditor } from './hooks/useTaskEditor';
-import { TaskStats } from './components/TaskStats';
+import { TaskProgressDisplay } from './components/TaskProgressDisplay';
 import { TaskDetailPanel } from './components/TaskDetailPanel';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import type { TaskDetail, TaskStats as TaskStatsType } from './types/task';
+import type { TaskDetail, TaskProgress } from './types/task';
 
 function AppContent() {
   const { themeConfig } = useTheme();
-  const [stats, setStats] = useState<TaskStatsType>({
-    totalTasks: 0,
-    completedTasks: 0,
+  const [progress, setProgress] = useState<TaskProgress>({
+    overall: 0,
+    items: [],
   });
   const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
 
@@ -23,7 +23,7 @@ function AppContent() {
 
   const editor = useTaskEditor({
     onTaskSelect: setSelectedTask,
-    onStatsUpdate: setStats,
+    onProgressUpdate: setProgress,
     onSelectedTaskUpdate: setSelectedTask,
   });
 
@@ -61,7 +61,7 @@ function AppContent() {
           <ThemeSwitcher />
         </div>
 
-        <TaskStats stats={stats} />
+        <TaskProgressDisplay progress={progress} />
 
         <div style={{
           border: `1px solid ${themeConfig.colors.border}`,
