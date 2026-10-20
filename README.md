@@ -1,40 +1,21 @@
-# TODOアプリ
+# 目標ツリー
 
-Reactを使ったTODOアプリケーションです。
+目標をサブ目標・タスクのツリーに分解し、子の達成度を集計方法（すべて=min・どれか=max・Σ 合計・Π 積・k 個以上）に従って親へ伝えるアプリです。
+前提（依存関係）の設定、「次の一手」の提示、項目ごとの進捗の記録ができます。
+
+アプリ本体は `my_app/index.html` 1ファイル（HTML・CSS・JavaScript）で完結しています。データはブラウザの localStorage に保存されます。
 
 ## 起動方法
 
-### 初回セットアップ
+`my_app/index.html` をブラウザで直接開くだけでも動きます。開発サーバーを使う場合は次の通りです。
 
-1. `my_app`ディレクトリに移動
 ```bash
 cd my_app
-```
-
-2. 依存関係のインストール
-```bash
 npm install
-```
-
-### 開発サーバーの起動
-
-```bash
-cd my_app
 npm run dev
 ```
 
-開発サーバーが起動したら、ブラウザで表示されるURLにアクセスしてください。
-
 ## その他のコマンド
 
-- `npm run build` - プロダクションビルド
-- `npm run lint` - ESLintによるコードチェック
+- `npm run build` - プロダクションビルド（`dist/` に出力）
 - `npm run preview` - ビルド後のプレビュー
-
-## 技術スタック
-
-- React 19.1.0
-- TypeScript
-- Vite
-- TailwindCSS
-- TipTap (リッチテキストエディタ)
