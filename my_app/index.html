@@ -1,13 +1,1014 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>目標ツリー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Noto+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ECEFEA; --surface:#F7F9F5; --ink:#1F2B2E; --muted:#5E6B6A; --line:#C6CEC4;
+  --and:#3346A0; --or:#9A6716; --done:#3F7A4A; --next:#8A3FA0; --hover:rgba(31,43,46,.05);
+  --sum:#2C7A76; --prod:#8A5A2B; --kofn:#55702A; --dep:#B23A3A;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151A1C; --surface:#1C2326; --ink:#E3E9E5; --muted:#93A09E; --line:#36434A;
+    --sum:#6CC7BF; --prod:#E0A774; --kofn:#A9C977; --dep:#F0857A;
+    --and:#9AA7F5; --or:#E3B05A; --done:#7FC28C; --next:#D79CE8; --hover:rgba(227,233,229,.06);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151A1C; --surface:#1C2326; --ink:#E3E9E5; --muted:#93A09E; --line:#36434A;
+  --sum:#6CC7BF; --prod:#E0A774; --kofn:#A9C977; --dep:#F0857A;
+  --and:#9AA7F5; --or:#E3B05A; --done:#7FC28C; --next:#D79CE8; --hover:rgba(227,233,229,.06);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif;
+  font-size:15px; line-height:1.6;
+}
+.wrap{max-width:900px; margin:0 auto; padding:32px 20px 80px}
+header.top{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 20px; margin-bottom:28px}
+h1{font-size:1.6rem; font-weight:700; margin:0; letter-spacing:.02em}
+.lede{margin:4px 0 0; color:var(--muted); font-size:.9rem}
+.lede i{font-family:"Noto Serif",Georgia,serif; color:var(--ink)}
+.top-actions{display:flex; align-items:center; gap:12px}
+.status{font-size:.8rem; color:var(--muted)}
+button{font:inherit; color:inherit; cursor:pointer}
+.btn{background:var(--ink); color:var(--bg); border:0; border-radius:6px; padding:8px 14px; font-weight:500}
+.btn:hover{opacity:.88}
+:focus-visible{outline:2px solid var(--and); outline-offset:2px}
+
+/* root block */
+.root{background:var(--surface); border-top:3px solid var(--ink); padding:18px 18px 12px; margin-bottom:28px}
+.root-head{display:grid; grid-template-columns:1fr auto; gap:4px 16px; align-items:start}
+.root-title{font-size:1.25rem; font-weight:700}
+.root-score{text-align:right; line-height:1.1}
+.root-pct{font-size:1.9rem; font-weight:700; font-variant-numeric:tabular-nums}
+.root-pct small{font-size:.9rem; font-weight:500; margin-left:2px}
+.root .formula{grid-column:1/-1}
+.root-bar{height:4px; background:var(--line); border-radius:2px; margin:10px 0 8px; overflow:hidden}
+.root-bar>div{height:100%; background:var(--ink); width:0; transition:width .25s}
+.root.done .root-bar>div{background:var(--done)}
+.root-tools{display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-bottom:6px}
+.next{font-size:.88rem; color:var(--muted); margin:0; flex:1 1 260px}
+.next button{background:none; border:0; padding:0; color:var(--next); font-weight:700; text-decoration:underline; text-underline-offset:3px}
+.next.complete{color:var(--done); font-weight:500}
+.empty-hint{color:var(--muted); font-size:.88rem; padding:6px 0 6px 4px; margin:0}
+
+/* inputs */
+input.title{
+  width:100%; border:0; background:transparent; color:inherit; font:inherit; padding:2px 4px; border-radius:4px;
+}
+input.title:hover{background:var(--hover)}
+input.title:focus{background:var(--bg); outline:none; box-shadow:inset 0 -2px 0 var(--and)}
+input.title::placeholder{color:var(--muted); opacity:.7}
+
+/* tree */
+ul.kids{list-style:none; margin:0 0 0 11px; padding:0 0 0 14px; border-left:1.5px solid var(--line)}
+.root>ul.kids{margin-left:4px}
+li.node{position:relative}
+.row{
+  display:grid; grid-template-columns:20px 100px minmax(0,1fr) 190px 112px;
+  grid-template-areas:"caret kind main meter acts";
+  align-items:center; gap:0 8px; padding:4px 4px; border-radius:6px; position:relative;
+}
+.row::before{content:""; position:absolute; left:-14px; top:50%; width:12px; border-top:1.5px solid var(--line)}
+.row:hover{background:var(--hover)}
+.caret{grid-area:caret; width:20px; height:20px; border:0; background:none; padding:0; color:var(--muted); font-size:.75rem; transition:transform .15s}
+.caret.closed{transform:rotate(-90deg)}
+.kindcell{grid-area:kind; display:flex; align-items:center}
+.kind{border:1.5px solid currentColor; background:transparent; border-radius:4px; padding:0 6px; font-size:.78rem; font-weight:700; line-height:1.6; white-space:nowrap}
+.kind.and{color:var(--and)} .kind.or{color:var(--or)} .kind.sum{color:var(--sum)} .kind.prod{color:var(--prod)} .kind.kofn{color:var(--kofn)}
+select.kind{
+  -webkit-appearance:none; appearance:none; font:inherit; font-size:.78rem; font-weight:700; line-height:1.6; padding:0 18px 0 6px;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:right 9px center,right 5px center; background-size:4px 4px; background-repeat:no-repeat;
+}
+select.kind option{color:var(--ink); background:var(--surface)}
+.chk{width:18px; height:18px; accent-color:var(--done); margin:0 0 0 4px; cursor:pointer}
+.main{grid-area:main; min-width:0}
+.formula{font-family:"Noto Serif",Georgia,serif; font-style:italic; font-size:.8rem; color:var(--muted); padding:0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.sub{display:flex; align-items:center; gap:8px; min-width:0}
+.sub .formula{flex:1; min-width:0}
+.param,.wlab{display:inline-flex; align-items:center; gap:4px; font-size:.75rem; color:var(--muted); white-space:nowrap}
+.param{padding-left:4px}
+.param input,input.w{width:3.4em; font:inherit; font-size:.78rem; padding:0 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.meter{grid-area:meter; display:flex; align-items:center; gap:8px}
+.pct{font-size:.8rem; font-variant-numeric:tabular-nums; color:var(--muted); width:3.2em; text-align:right}
+.bar{flex:1; height:6px; border-radius:3px; background:var(--line); overflow:hidden}
+.bar>div{height:100%; width:0; transition:width .25s}
+.node.and>.row .bar>div{background:var(--and)}
+.node.or>.row .bar>div{background:var(--or)}
+.node.sum>.row .bar>div{background:var(--sum)}
+.node.prod>.row .bar>div{background:var(--prod)}
+.node.kofn>.row .bar>div{background:var(--kofn)}
+.node.full>.row .bar>div{background:var(--done)}
+input.range{
+  -webkit-appearance:none; appearance:none; flex:1; height:6px; border-radius:3px; margin:0; cursor:pointer;
+  background:linear-gradient(to right,var(--ink) 0 var(--v,0%),var(--line) var(--v,0%) 100%);
+}
+.node.full input.range{background:linear-gradient(to right,var(--done) 0 100%,var(--line) 100%)}
+input.range::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--surface); border:2px solid var(--ink)}
+input.range::-moz-range-thumb{width:12px; height:12px; border-radius:50%; background:var(--surface); border:2px solid var(--ink)}
+.acts{grid-area:acts; display:flex; justify-content:flex-end; gap:2px; opacity:.35; transition:opacity .15s}
+.row:hover .acts,.row:focus-within .acts{opacity:1}
+.ic{width:26px; height:26px; border:0; background:none; border-radius:4px; color:var(--muted); font-size:1rem; line-height:1}
+.ic:hover{background:var(--hover); color:var(--ink)}
+.node.full>.row input.title{color:var(--muted); text-decoration:line-through; text-decoration-color:var(--line)}
+
+/* layout + log panel */
+.layout{display:grid; grid-template-columns:minmax(0,1fr); gap:24px; align-items:start}
+.panel{background:var(--surface); border-top:3px solid var(--ink); display:flex; flex-direction:column; min-height:0}
+@media (min-width:1100px){
+  .wrap{max-width:1320px}
+  .layout{grid-template-columns:minmax(0,1fr) 380px}
+  .panel{position:sticky; top:calc(16px + env(safe-area-inset-top,0px)); height:calc(100vh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+}
+@media (max-width:1099px){
+  .panel{position:fixed; left:0; right:0; bottom:0; height:min(72vh,580px); z-index:25; border-radius:12px 12px 0 0; border-top-width:0; box-shadow:0 -8px 30px rgba(0,0,0,.2); padding-bottom:env(safe-area-inset-bottom,0px); transform:translateY(105%); transition:transform .2s; visibility:hidden}
+  .panel.open{transform:none; visibility:visible}
+  .p-empty{display:none}
+}
+.p-empty{padding:20px 18px; color:var(--muted); font-size:.88rem}
+.p-empty[hidden],.p-body[hidden]{display:none}
+.p-body{display:flex; flex-direction:column; min-height:0; flex:1}
+.p-head{padding:14px 16px 10px; border-bottom:1px solid var(--line)}
+.p-crumb{font-size:.75rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.p-titlerow{display:flex; align-items:flex-start; gap:8px}
+.p-titlerow h2{font-size:1.05rem; margin:2px 0 6px; flex:1; line-height:1.4}
+.p-stat{display:flex; align-items:center; gap:10px; font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.p-stat .bar{flex:0 1 160px}
+#pBar{background:var(--ink)}
+#pState.wait{color:var(--dep); font-weight:700}
+#pState.ok{color:var(--done); font-weight:700}
+.p-log{flex:1; overflow:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; min-height:0}
+.msg{max-width:88%; font-size:.88rem; line-height:1.65; white-space:pre-wrap; word-break:break-word; margin:0}
+.msg .tm{display:block; font-size:.68rem; color:var(--muted); margin-top:2px}
+.msg.me{align-self:flex-end; background:color-mix(in srgb,var(--and) 13%,var(--surface)); padding:6px 10px; border-radius:10px 10px 2px 10px}
+.msg.me .tm{text-align:right}
+.msg.ai{align-self:flex-start; background:var(--bg); padding:6px 10px 6px 12px; border-radius:2px 10px 10px 2px; border-left:3px solid var(--next)}
+.msg.ai .who{display:block; font-size:.7rem; font-weight:700; color:var(--next)}
+.msg.sys{align-self:center; max-width:100%; font-size:.74rem; color:var(--muted); text-align:center}
+.p-compose{border-top:1px solid var(--line); padding:10px 12px}
+.p-compose textarea{width:100%; resize:none; font:inherit; font-size:.9rem; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--bg); color:var(--ink)}
+.p-compose textarea:focus{outline:none; border-color:var(--and)}
+.p-btns{display:flex; align-items:center; gap:8px; margin-top:8px}
+.p-hint{font-size:.7rem; color:var(--muted); margin-right:auto}
+.btn-ghost{background:transparent; border:1.5px solid var(--next); color:var(--next); border-radius:6px; padding:6px 12px; font-weight:500}
+.btn:disabled,.btn-ghost:disabled{opacity:.5; cursor:default}
+li.sel>.row{outline:2px solid var(--ink); outline-offset:-2px}
+.root.sel>.root-head{box-shadow:inset 3px 0 0 var(--ink); padding-left:6px}
+.ic .cnt{font-size:.62rem; vertical-align:super; margin-left:1px; font-weight:700}
+.ic svg{vertical-align:-2px}
+
+/* dependencies */
+.stage{position:relative; padding-right:34px}
+#links{position:absolute; left:0; top:0; pointer-events:none; overflow:visible}
+path.link{fill:none; stroke-width:1.5}
+path.link.wait{stroke:var(--dep)}
+path.link.ok{stroke:var(--muted); stroke-dasharray:3 3; opacity:.6}
+.deps{font-size:.75rem; color:var(--muted); padding:0 4px}
+.deps .wait{color:var(--dep); font-weight:700}
+.deps .ok{text-decoration:line-through}
+li.blocked>.row .kindcell,li.blocked>.row input.title,li.blocked>.row .meter{opacity:.5}
+li.blocked>.row input.range{cursor:not-allowed}
+.modal{position:fixed; inset:0; background:rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; padding:16px; z-index:30}
+.modal[hidden]{display:none}
+.sheet{background:var(--surface); color:var(--ink); border-radius:10px; width:min(480px,100%); max-height:80vh; display:flex; flex-direction:column; padding:18px}
+.sheet h2{font-size:1.05rem; margin:0 0 4px}
+.sheet .hint{font-size:.82rem; color:var(--muted); margin:0 0 10px}
+.pick-list{overflow:auto; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:6px 0; flex:1}
+.pick-item{display:flex; align-items:center; gap:8px; padding:4px 8px; font-size:.9rem; cursor:pointer; border-radius:4px}
+.pick-item:hover{background:var(--hover)}
+.pick-item input{accent-color:var(--dep)}
+.pick-item.off{color:var(--muted); cursor:default}
+.pick-item .why{font-size:.72rem; color:var(--muted); margin-left:auto; white-space:nowrap}
+.sheet-foot{display:flex; justify-content:flex-end; padding-top:12px}
+
+/* focus path */
+li.path>.row::before{border-top-color:var(--next)}
+li.path>ul.kids{border-left-color:color-mix(in srgb,var(--next) 45%,var(--line))}
+li.target>.row{background:color-mix(in srgb,var(--next) 10%,transparent)}
+li.target>.row::after{
+  content:"次の一手"; position:absolute; right:calc(100% + 18px); top:50%; transform:translateY(-50%);
+  font-size:.7rem; color:var(--next); font-weight:700; white-space:nowrap; display:none;
+}
+@keyframes flash{0%{box-shadow:0 0 0 3px var(--next)}100%{box-shadow:0 0 0 0 transparent}}
+.row.flash{animation:flash 1.2s ease-out}
+
+.toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:8px 8px 8px 16px; border-radius:8px; display:flex; gap:12px; align-items:center; font-size:.88rem; z-index:20}
+.toast[hidden]{display:none}
+.toast button{background:transparent; color:var(--bg); border:1px solid color-mix(in srgb,var(--bg) 50%,transparent); border-radius:5px; padding:3px 10px}
+.empty{padding:40px 0; text-align:center; color:var(--muted)}
+
+@media (max-width:620px){
+  .wrap{padding:20px 12px 80px}
+  .stage{padding-right:24px}
+  .root{padding:14px 10px 10px}
+  .row{grid-template-columns:20px auto minmax(0,1fr) auto; grid-template-areas:"caret kind main acts" ". meter meter meter"; row-gap:2px}
+  .acts{opacity:1}
+  .meter{padding:0 0 4px 0}
+  .root-pct{font-size:1.5rem}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>目標ツリー</h1>
+      <p class="lede">子の達成度を、集計方法（<i>min</i>・<i>max</i>・<i>Σ</i>・<i>Π</i>・<i>k</i>個以上）に従って親へ伝えます。⇠ で前提を設定、行をクリックすると進捗の記録が開きます。</p>
+    </div>
+    <div class="top-actions">
+      <span class="status" id="status" aria-live="polite"></span>
+      <button class="btn" id="addRoot">目標を追加</button>
+    </div>
+  </header>
+  <div class="layout">
+  <div class="stage" id="stage">
+    <main id="forest"></main>
+    <svg id="links" aria-hidden="true"><defs>
+      <marker id="arrWait" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dep)"/></marker>
+      <marker id="arrOk" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--muted)"/></marker>
+    </defs></svg>
+  </div>
+  <aside class="panel" id="panel" aria-label="進捗の記録">
+    <p class="p-empty" id="pEmpty">タスクやサブ目標の行をクリックすると、ここに進捗の記録が表示されます。メモを残したり、AIに相談したりできます。</p>
+    <div class="p-body" id="pBody" hidden>
+      <div class="p-head">
+        <div class="p-crumb" id="pCrumb"></div>
+        <div class="p-titlerow"><h2 id="pTitle"></h2><button class="ic" id="pClose" aria-label="記録を閉じる" title="閉じる">×</button></div>
+        <div class="p-stat"><div class="bar"><div id="pBar"></div></div><span id="pPct"></span><span id="pState"></span></div>
+      </div>
+      <div class="p-log" id="pLog" aria-live="polite"></div>
+      <div class="p-compose">
+        <textarea id="pText" rows="2" placeholder="やったこと・詰まっていること・メモ" aria-label="記録を書く"></textarea>
+        <div class="p-btns"><span class="p-hint">Enterで記録、Shift+Enterで改行</span><button class="btn-ghost" id="pAsk" hidden>AIに相談</button><button class="btn" id="pSend">記録する</button></div>
+      </div>
+    </div>
+  </aside>
+  </div>
+</div>
+<div class="modal" id="picker" hidden role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+  <div class="sheet">
+    <h2 id="pickTitle"></h2>
+    <p class="hint">チェックした項目がすべて完了するまで、この項目とその下のタスクは着手できない扱いになります。</p>
+    <div class="pick-list" id="pickList"></div>
+    <div class="sheet-foot"><button class="btn" id="pickDone">閉じる</button></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="undo">元に戻す</button></div>
+
+<script>
+(function(){
+  const KEY = 'goal-tree-v1';
+  const SAMPLE = {roots:[{id:'r1',title:'ブログを公開する',type:'and',children:[
+    {id:'a',title:'最初の記事を3本書く',type:'and',children:[
+      {id:'a1',title:'自己紹介の記事',type:'task',progress:100},
+      {id:'a2',title:'技術記事 1本目',type:'task',progress:60},
+      {id:'a3',title:'技術記事 2本目',type:'task',progress:0}]},
+    {id:'b',title:'公開先を用意する',type:'or',children:[
+      {id:'b1',title:'自前サーバーを立てる',type:'task',progress:30},
+      {id:'b2',title:'Zennにアカウントを作る',type:'task',progress:0},
+      {id:'b3',title:'はてなブログを開設する',type:'task',progress:0}]},
+    {id:'c',title:'SNSで告知する',type:'task',progress:0,deps:['a','b']}]}]};
+
+  const $ = s => document.querySelector(s);
+  const forest = $('#forest');
+  const uid = () => Math.random().toString(36).slice(2,10);
+  const clone = o => JSON.parse(JSON.stringify(o));
+
+  function loadLocal(){ try{ const s = localStorage.getItem(KEY); if(s) return JSON.parse(s); }catch(e){} return null; }
+  let state = loadLocal() || clone(SAMPLE);
+  if(!state || !Array.isArray(state.roots)) state = clone(SAMPLE);
+  if(!state.logs || typeof state.logs !== 'object') state.logs = {};
+
+  /* ---------- math ---------- */
+  const vals = new Map();
+  const isSet = x => x !== undefined && x !== null && x !== '';
+  const wOf = c => { const w = Number(c.w); return isSet(c.w) && isFinite(w) && w >= 0 ? w : 1; };
+  const sumTarget = n => { const t = Number(n.target); return isSet(n.target) && t > 0 ? t : n.children.reduce((a,c) => a + wOf(c), 0); };
+  const kOf = n => Math.max(1, Math.min(n.children.length, Math.round(Number(n.k) || 1)));
+  const fmtW = x => String(Math.round(x*100)/100);
+  function evaluate(n){
+    let v;
+    if(n.type === 'task') v = Math.max(0, Math.min(100, Number(n.progress)||0)) / 100;
+    else if(!n.children || !n.children.length) v = 0;
+    else {
+      const cs = n.children.map(evaluate);
+      switch(n.type){
+        case 'or': v = Math.max(...cs); break;
+        case 'sum': { const T = sumTarget(n); const s = cs.reduce((a,x,i) => a + wOf(n.children[i]) * x, 0); v = T > 0 ? Math.min(1, s / T) : 0; break; }
+        case 'prod': v = cs.reduce((a,x) => a * x, 1); break;
+        case 'kofn': { const sorted = [...cs].sort((a,b) => b - a); v = sorted[kOf(n) - 1] || 0; break; }
+        default: v = Math.min(...cs);
+      }
+    }
+    vals.set(n.id, v);
+    return v;
+  }
+  // 根の達成度を上げるために次に触るべき葉までの経路
+  function focusPath(n){
+    if(vals.get(n.id) >= 1) return [];
+    if(n.type === 'task' || !n.children || !n.children.length) return [n];
+    const inc = n.children.filter(c => vals.get(c.id) < 1);
+    if(!inc.length) return [n];
+    const best = key => inc.reduce((p,c) => key(c) > key(p) ? c : p);
+    const V = c => vals.get(c.id);
+    let pick;
+    switch(n.type){
+      case 'or': pick = best(V); break;                                  // 完了に一番近い選択肢
+      case 'sum': pick = best(c => wOf(c) + V(c) * 1e-6); break;         // 重み＝1単位あたりの寄与が最大
+      case 'kofn': pick = [...n.children].sort((a,b) => V(b) - V(a))[kOf(n) - 1]; break; // k番目が値を決めている
+      default: pick = best(c => -V(c));                                  // min・積はいちばん低い子
+    }
+    return [n, ...focusPath(pick)];
+  }
+  const pct = v => Math.round(v*100);
+
+  /* ---------- dependencies ---------- */
+  let nodesMap = new Map(), parentMap = new Map();
+  function indexTree(){
+    nodesMap = new Map(); parentMap = new Map();
+    const w = (m,p) => { nodesMap.set(m.id, m); if(p) parentMap.set(m.id, p); (m.children || []).forEach(c => w(c, m)); };
+    state.roots.forEach(r => w(r, null));
+  }
+  // 自分と祖先の前提のうち、未完了のもの
+  function blockers(n){
+    const out = []; let cur = n;
+    while(cur){
+      (cur.deps || []).forEach(d => { if(nodesMap.has(d) && vals.get(d) < 1 && !out.includes(d)) out.push(d); });
+      cur = parentMap.get(cur.id);
+    }
+    return out;
+  }
+  // 前提待ちの葉なら、その前提側で次にやるべき葉へ振り替える
+  function resolveTarget(leaf, seen = new Set()){
+    if(!leaf || seen.has(leaf.id)) return leaf;
+    seen.add(leaf.id);
+    const b = blockers(leaf);
+    if(!b.length) return leaf;
+    const fp = focusPath(nodesMap.get(b[0]));
+    return resolveTarget(fp[fp.length-1] || nodesMap.get(b[0]), seen);
+  }
+  // n が x を前提にしたときに、どこかで循環（永久に着手できない状態）が生まれるか
+  function wouldDeadlock(nid, xid){
+    indexTree();
+    const out = id => {
+      const v = nodesMap.get(id);
+      const s = new Set((v.children || []).map(c => c.id));
+      let cur = v;
+      while(cur){ (cur.deps || []).forEach(d => s.add(d)); if(cur.id === nid) s.add(xid); cur = parentMap.get(cur.id); }
+      return s;
+    };
+    const color = new Map();
+    const dfs = id => {
+      color.set(id, 1);
+      for(const t of out(id)){
+        if(!nodesMap.has(t)) continue;
+        const c = color.get(t) || 0;
+        if(c === 1) return true;
+        if(c === 0 && dfs(t)) return true;
+      }
+      color.set(id, 2); return false;
+    };
+    for(const id of nodesMap.keys()) if(!color.get(id) && dfs(id)) return true;
+    return false;
+  }
+
+  /* ---------- tree helpers ---------- */
+  function find(id, list = state.roots, parent = null){
+    for(let i=0;i<list.length;i++){
+      const n = list[i];
+      if(n.id === id) return {node:n, parent, list, index:i};
+      if(n.children){ const r = find(id, n.children, n); if(r) return r; }
+    }
+    return null;
+  }
+
+  /* ---------- storage ---------- */
+  let dbRef = null, saveTimer = null, saving = false, pending = false;
+  const setStatus = t => { $('#status').textContent = t; };
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+    if(!dbRef){ setStatus('この端末に保存'); return; }
+    setStatus('保存中…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flush, 700);
+  }
+  async function flush(){
+    if(!dbRef) return;
+    if(saving){ pending = true; return; }
+    saving = true;
+    try{ await dbRef.set({json: JSON.stringify(state), updatedAt: Date.now()}); setStatus('保存済み'); }
+    catch(e){ setStatus('クラウドに保存できませんでした（この端末には保存済み）'); }
+    saving = false;
+    if(pending){ pending = false; flush(); }
+  }
+  (async () => {
+    try{
+      if(!window.claude || !window.claude.use){ setStatus('この端末に保存'); return; }
+      const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+      if(!db || !user){ setStatus('この端末に保存'); return; }
+      const id = await user.id();
+      if(!id){ setStatus('この端末に保存'); return; }
+      dbRef = db.doc('data/users/' + id + '/tree');
+      const snap = await dbRef.get();
+      if(snap.exists){
+        const d = snap.data();
+        if(d && typeof d.json === 'string'){
+          const parsed = JSON.parse(d.json);
+          if(parsed && Array.isArray(parsed.roots)){ state = parsed; if(!state.logs || typeof state.logs !== 'object') state.logs = {}; try{ localStorage.setItem(KEY, d.json); }catch(e){} render(); }
+        }
+        setStatus('保存済み');
+      } else {
+        await flush();
+      }
+    }catch(e){ setStatus('この端末に保存'); }
+  })();
+
+  /* ---------- render ---------- */
+  function el(tag, cls, attrs){
+    const e = document.createElement(tag);
+    if(cls) e.className = cls;
+    if(attrs) for(const k in attrs){ if(k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); }
+    return e;
+  }
+  function titleInput(n, ph){
+    const i = el('input','title',{type:'text', placeholder:ph, 'aria-label':'名前', 'data-role':'title'});
+    i.value = n.title || '';
+    return i;
+  }
+  const KINDS = [['and','∧ すべて'],['or','∨ どれか'],['sum','Σ 合計'],['prod','Π 積'],['kofn','k 個以上']];
+  function kindControl(n){
+    const s = el('select','kind ' + n.type,{'data-role':'kind','aria-label':'集計方法'});
+    KINDS.forEach(([v,l]) => { const o = el('option',null,{value:v, text:l}); if(v === n.type) o.selected = true; s.appendChild(o); });
+    return s;
+  }
+  function paramControl(n){
+    if(n.type !== 'sum' && n.type !== 'kofn') return null;
+    const l = el('label','param');
+    const i = el('input',null,{type:'number', inputmode:'decimal'});
+    if(n.type === 'sum'){ l.append('目標'); i.setAttribute('min','0'); i.setAttribute('step','any'); i.setAttribute('data-role','target'); i.setAttribute('aria-label','合計の目標値（空欄なら重みの合計）'); i.value = isSet(n.target) ? n.target : ''; }
+    else { l.append('k ='); i.setAttribute('min','1'); i.setAttribute('step','1'); i.setAttribute('data-role','k'); i.setAttribute('aria-label','必要な個数'); i.value = isSet(n.k) ? n.k : 1; }
+    l.appendChild(i);
+    return l;
+  }
+
+  function chatBtn(){
+    const b = el('button','ic',{'data-act':'chat', title:'進捗の記録', 'aria-label':'進捗の記録を開く'});
+    b.innerHTML = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h11v7.5h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span class="cnt"></span>';
+    return b;
+  }
+  function renderNode(n, parent){
+    const li = el('li','node ' + n.type,{'data-id':n.id});
+    const row = el('div','row');
+    const hasKids = n.type !== 'task' && n.children && n.children.length;
+    if(hasKids){
+      const c = el('button','caret' + (n.collapsed ? ' closed' : ''),{'data-act':'collapse','aria-label': n.collapsed ? '開く' : '閉じる','aria-expanded': String(!n.collapsed)});
+      c.textContent = '▼';
+      row.appendChild(c);
+    } else row.appendChild(el('span','caret'));
+    const kc = el('div','kindcell');
+    if(n.type === 'task'){
+      const cb = el('input','chk',{type:'checkbox','data-role':'check','aria-label':'完了'});
+      kc.appendChild(cb);
+    } else kc.appendChild(kindControl(n));
+    row.appendChild(kc);
+    const main = el('div','main');
+    main.appendChild(titleInput(n, n.type === 'task' ? 'タスク名' : 'サブ目標名'));
+    if(n.type !== 'task'){
+      const sub = el('div','sub');
+      const pc = paramControl(n); if(pc) sub.appendChild(pc);
+      sub.appendChild(el('div','formula'));
+      main.appendChild(sub);
+    }
+    const dl = el('div','deps'); dl.hidden = true; main.appendChild(dl);
+    row.appendChild(main);
+    const meter = el('div','meter');
+    if(parent && parent.type === 'sum'){
+      const l = el('label','wlab'); l.append('重み');
+      const w = el('input','w',{type:'number', min:'0', step:'any', inputmode:'decimal', 'data-role':'w', 'aria-label':'重み', placeholder:'1'});
+      w.value = isSet(n.w) ? n.w : '';
+      l.appendChild(w); meter.appendChild(l);
+    }
+    if(n.type === 'task'){
+      const r = el('input','range',{type:'range',min:'0',max:'100',step:'10','data-role':'range','aria-label':'進捗'});
+      meter.appendChild(r);
+    } else { const b = el('div','bar'); b.appendChild(el('div')); meter.appendChild(b); }
+    meter.appendChild(el('span','pct'));
+    row.appendChild(meter);
+    const acts = el('div','acts');
+    acts.appendChild(el('button','ic',{'data-act':'deps', title:'前提を設定', 'aria-label':'前提を設定', text:'⇠'}));
+    acts.appendChild(chatBtn());
+    acts.appendChild(el('button','ic',{'data-act':'add', title:'子を追加', 'aria-label':'子を追加', text:'＋'}));
+    acts.appendChild(el('button','ic',{'data-act':'del', title:'削除', 'aria-label':'削除', text:'×'}));
+    row.appendChild(acts);
+    li.appendChild(row);
+    if(hasKids && !n.collapsed){
+      const ul = el('ul','kids');
+      n.children.forEach(c => ul.appendChild(renderNode(c, n)));
+      li.appendChild(ul);
+    }
+    return li;
+  }
+
+  function renderRoot(r){
+    const sec = el('section','root',{'data-id':r.id});
+    const head = el('div','root-head');
+    const t = titleInput(r,'目標名'); t.classList.add('root-title');
+    head.appendChild(t);
+    const score = el('div','root-score'); score.innerHTML = '<span class="root-pct"><span class="n">0</span><small>%</small></span>';
+    head.appendChild(score);
+    head.appendChild(el('div','formula'));
+    sec.appendChild(head);
+    const bar = el('div','root-bar'); bar.appendChild(el('div')); sec.appendChild(bar);
+    const tools = el('div','root-tools');
+    tools.appendChild(el('p','next'));
+    tools.appendChild(kindControl(r));
+    const rp = paramControl(r); if(rp) tools.appendChild(rp);
+    tools.appendChild(chatBtn());
+    tools.appendChild(el('button','ic',{'data-act':'add', title:'子を追加','aria-label':'子を追加', text:'＋'}));
+    tools.appendChild(el('button','ic',{'data-act':'del', title:'目標を削除','aria-label':'目標を削除', text:'×'}));
+    sec.appendChild(tools);
+    if(r.children && r.children.length){
+      const ul = el('ul','kids');
+      r.children.forEach(c => ul.appendChild(renderNode(c, r)));
+      sec.appendChild(ul);
+    } else {
+      sec.appendChild(el('p','empty-hint',{text:'＋ でサブ目標やタスクを追加しましょう。子が1つ以上あると達成度が計算されます。'}));
+    }
+    return sec;
+  }
+
+  function render(focusId){
+    forest.textContent = '';
+    if(!state.roots.length){
+      forest.appendChild(el('p','empty',{text:'目標がありません。「目標を追加」から始めましょう。'}));
+    }
+    state.roots.forEach(r => forest.appendChild(renderRoot(r)));
+    update();
+    if(focusId){
+      const i = forest.querySelector('[data-id="'+focusId+'"] input.title');
+      if(i) i.focus();
+    }
+  }
+
+  function formulaText(n){
+    if(!n.children || !n.children.length) return '';
+    const P = c => pct(vals.get(c.id));
+    const res = ' = ' + pct(vals.get(n.id));
+    switch(n.type){
+      case 'or': return 'max(' + n.children.map(P).join(', ') + ')' + res;
+      case 'sum': return '(' + n.children.map(c => { const w = wOf(c); return (w === 1 ? '' : fmtW(w) + '×') + P(c); }).join(' + ') + ') / ' + fmtW(sumTarget(n)) + res;
+      case 'prod': return n.children.map(c => vals.get(c.id).toFixed(2)).join(' × ') + ' = ' + vals.get(n.id).toFixed(2);
+      case 'kofn': return kOf(n) + '番目に大きい値(' + n.children.map(P).join(', ') + ')' + res;
+      default: return 'min(' + n.children.map(P).join(', ') + ')' + res;
+    }
+  }
+
+  function depsLine(box, n, isBlocked){
+    box.textContent = '';
+    const own = (n.deps || []).filter(d => nodesMap.has(d));
+    if(!own.length && !isBlocked){ box.hidden = true; return; }
+    box.hidden = false;
+    if(own.length){
+      box.append(isBlocked ? '待ち：' : '前提：');
+      own.forEach((d,i) => {
+        if(i) box.append('、');
+        box.appendChild(el('span', vals.get(d) >= 1 ? 'ok' : 'wait', {text: nodesMap.get(d).title || '（名前なし）'}));
+      });
+    }
+    if(isBlocked && !own.some(d => vals.get(d) < 1)) box.append((own.length ? '　' : '') + '親の前提が未完了');
+  }
+
+  function visibleAnchor(id){
+    let cur = nodesMap.get(id);
+    while(cur){
+      const li = forest.querySelector('li[data-id="'+cur.id+'"]');
+      if(li) return li.firstElementChild;
+      const sec = forest.querySelector('section[data-id="'+cur.id+'"]');
+      if(sec) return sec.querySelector('.root-head');
+      cur = parentMap.get(cur.id);
+    }
+    return null;
+  }
+  function drawArrows(){
+    const svg = $('#links'), stage = $('#stage');
+    svg.querySelectorAll('path.link').forEach(p => p.remove());
+    svg.setAttribute('width', stage.clientWidth);
+    svg.setAttribute('height', stage.clientHeight);
+    const sr = stage.getBoundingClientRect();
+    const ns = 'http://www.w3.org/2000/svg';
+    let lane = 0;
+    nodesMap.forEach(n => {
+      if(!n.deps || !n.deps.length) return;
+      const dst = visibleAnchor(n.id); if(!dst) return;
+      n.deps.forEach(d => {
+        if(!nodesMap.has(d)) return;
+        const src = visibleAnchor(d); if(!src || src === dst) return;
+        const a = src.getBoundingClientRect(), b = dst.getBoundingClientRect();
+        const x1 = src.closest('.root').getBoundingClientRect().right - sr.left;
+        const x2 = dst.closest('.root').getBoundingClientRect().right - sr.left;
+        const y1 = a.top + a.height/2 - sr.top, y2 = b.top + b.height/2 - sr.top;
+        const X = Math.max(x1, x2) + 14 + (lane++ % 3) * 8;
+        const done = vals.get(d) >= 1;
+        const p = document.createElementNS(ns, 'path');
+        p.setAttribute('d', 'M' + x1 + ',' + y1 + ' C' + X + ',' + y1 + ' ' + X + ',' + y2 + ' ' + (x2 + 3) + ',' + y2);
+        p.setAttribute('class', 'link ' + (done ? 'ok' : 'wait'));
+        p.setAttribute('marker-end', done ? 'url(#arrOk)' : 'url(#arrWait)');
+        svg.appendChild(p);
+      });
+    });
+  }
+
+  function update(){
+    vals.clear();
+    state.roots.forEach(evaluate);
+    indexTree();
+    forest.querySelectorAll('input[data-role="target"]').forEach(i => { const f = find(idOf(i)); if(f && f.node.children) i.placeholder = fmtW(sumTarget(f.node)); });
+    forest.querySelectorAll('input[data-role="k"]').forEach(i => { const f = find(idOf(i)); if(f && f.node.children) i.max = String(f.node.children.length); });
+    forest.querySelectorAll('.path,.target').forEach(e => e.classList.remove('path','target'));
+    const walk = n => {
+      const v = vals.get(n.id);
+      const node = forest.querySelector('li[data-id="'+n.id+'"]');
+      if(node){
+        node.classList.toggle('full', v >= 1);
+        const row = node.firstElementChild;
+        const p = row.querySelector('.pct'); if(p) p.textContent = pct(v) + '%';
+        const f = row.querySelector('.formula'); if(f) f.textContent = formulaText(n);
+        const b = row.querySelector('.bar>div'); if(b) b.style.width = pct(v) + '%';
+        const r = row.querySelector('input.range');
+        if(r){ if(document.activeElement !== r) r.value = n.progress || 0; r.style.setProperty('--v', (n.progress||0) + '%'); }
+        const c = row.querySelector('input.chk'); if(c) c.checked = v >= 1;
+        const isBlocked = v < 1 && blockers(n).length > 0;
+        node.classList.toggle('blocked', isBlocked);
+        if(r) r.disabled = isBlocked;
+        if(c) c.disabled = isBlocked;
+        depsLine(row.querySelector('.deps'), n, isBlocked);
+        const cc = row.querySelector('.cnt'); if(cc){ const k = (state.logs[n.id] || []).length; cc.textContent = k ? String(k) : ''; }
+      }
+      if(n.children) n.children.forEach(walk);
+    };
+    state.roots.forEach(r => {
+      const sec = forest.querySelector('section[data-id="'+r.id+'"]');
+      if(!sec) return;
+      const v = vals.get(r.id);
+      sec.classList.toggle('done', v >= 1);
+      sec.querySelector('.root-pct .n').textContent = pct(v);
+      sec.querySelector('.root-bar>div').style.width = pct(v) + '%';
+      sec.querySelector('.root-head .formula').textContent = formulaText(r) ? 'a = ' + formulaText(r) : '';
+      const rc = sec.querySelector('.root-tools .cnt'); if(rc){ const k = (state.logs[r.id] || []).length; rc.textContent = k ? String(k) : ''; }
+      if(r.children) r.children.forEach(walk);
+      const next = sec.querySelector('.next');
+      next.classList.remove('complete');
+      next.textContent = '';
+      if(!r.children || !r.children.length) return;
+      if(v >= 1){ next.classList.add('complete'); next.textContent = '達成しました。'; return; }
+      const fp = focusPath(r);
+      const leaf = fp[fp.length-1];
+      const target = resolveTarget(leaf);
+      const chain = [];
+      for(let cur = target; cur && parentMap.has(cur.id); cur = parentMap.get(cur.id)) chain.push(cur);
+      chain.forEach((n, i) => {
+        const li = forest.querySelector('li[data-id="'+n.id+'"]');
+        if(li){ li.classList.add('path'); if(i === 0) li.classList.add('target'); }
+      });
+      if(target && target !== r){
+        next.append('次の一手：');
+        const b = el('button',null,{'data-act':'goto','data-target':target.id});
+        b.textContent = target.title || '（名前なし）';
+        next.appendChild(b);
+        if(target !== leaf) next.append('（「' + (leaf.title || '名前なし') + '」の前提）');
+        if(chain.slice(1).some(n => n.collapsed)) next.append('（折りたたみ内）');
+      }
+    });
+    markSel();
+    renderPanel(false);
+    requestAnimationFrame(drawArrows);
+  }
+
+  /* ---------- dependency picker ---------- */
+  let pickFor = null, pickReturn = null;
+  function buildPickList(focusDep){
+    const list = $('#pickList');
+    list.textContent = '';
+    indexTree();
+    const n = nodesMap.get(pickFor); if(!n) return;
+    const deps = new Set(n.deps || []);
+    const walk = (m, depth) => {
+      const lab = el('label','pick-item');
+      lab.style.paddingLeft = (depth * 16 + 8) + 'px';
+      const cb = el('input',null,{type:'checkbox','data-dep':m.id});
+      cb.checked = deps.has(m.id);
+      let why = '';
+      if(m.id === n.id) why = 'この項目';
+      else if(!cb.checked && wouldDeadlock(n.id, m.id)) why = '循環するので選べません';
+      if(why){ cb.disabled = true; lab.classList.add('off'); }
+      lab.appendChild(cb);
+      lab.append(m.title || '（名前なし）');
+      if(why) lab.appendChild(el('span','why',{text:why}));
+      list.appendChild(lab);
+      (m.children || []).forEach(c => walk(c, depth + 1));
+    };
+    state.roots.forEach(r => walk(r, 0));
+    if(focusDep){ const f = list.querySelector('input[data-dep="'+focusDep+'"]'); if(f) f.focus(); }
+  }
+  function openPicker(id){
+    pickFor = id; pickReturn = document.activeElement;
+    const n = find(id).node;
+    $('#pickTitle').textContent = '「' + (n.title || '名前なし') + '」の前提';
+    buildPickList();
+    $('#picker').hidden = false;
+    const f = $('#pickList input:not(:disabled)'); if(f) f.focus();
+  }
+  function closePicker(){
+    $('#picker').hidden = true; pickFor = null;
+    if(pickReturn && document.contains(pickReturn)) pickReturn.focus();
+  }
+  $('#pickList').addEventListener('change', e => {
+    const cb = e.target, d = cb.getAttribute('data-dep');
+    const f = find(pickFor); if(!f || !d) return;
+    const n = f.node;
+    n.deps = (n.deps || []).filter(x => x !== d);
+    if(cb.checked) n.deps.push(d);
+    if(!n.deps.length) delete n.deps;
+    update(); save();
+    buildPickList(d);
+  });
+  $('#pickDone').addEventListener('click', closePicker);
+  $('#picker').addEventListener('click', e => { if(e.target.id === 'picker') closePicker(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('#picker').hidden){ closePicker(); e.preventDefault(); } });
+
+  /* ---------- progress log panel ---------- */
+  let selId = null, sample = null, aiBusy = false;
+  const wide = () => window.matchMedia('(min-width:1100px)').matches;
+  const two = x => String(x).padStart(2,'0');
+  const fmtTime = t => { const d = new Date(t); return (d.getMonth()+1) + '/' + d.getDate() + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()); };
+  function markSel(){
+    forest.querySelectorAll('.sel').forEach(e => e.classList.remove('sel'));
+    if(!selId) return;
+    const t = forest.querySelector('li[data-id="'+selId+'"]') || forest.querySelector('section[data-id="'+selId+'"]');
+    if(t) t.classList.add('sel');
+  }
+  function select(id){
+    if(!id || !find(id)) return;
+    selId = id; markSel(); renderPanel(true);
+    $('#panel').classList.add('open');
+    if(wide()) $('#pText').focus({preventScroll:true});
+  }
+  function closePanel(){ selId = null; markSel(); renderPanel(true); }
+  function renderPanel(full){
+    const f = selId ? find(selId) : null;
+    if(!f){ selId = null; $('#pBody').hidden = true; $('#pEmpty').hidden = false; $('#panel').classList.remove('open'); return; }
+    const n = f.node;
+    $('#pEmpty').hidden = true; $('#pBody').hidden = false;
+    const chain = [];
+    for(let c = parentMap.get(n.id); c; c = parentMap.get(c.id)) chain.unshift(c.title || '名前なし');
+    $('#pCrumb').textContent = chain.length ? chain.join(' / ') : '最上位の目標';
+    $('#pTitle').textContent = n.title || '（名前なし）';
+    const v = vals.get(n.id) || 0;
+    $('#pBar').style.width = pct(v) + '%';
+    $('#pPct').textContent = pct(v) + '%';
+    const bl = v < 1 && blockers(n).length > 0;
+    const st = $('#pState');
+    st.className = bl ? 'wait' : (v >= 1 ? 'ok' : '');
+    st.textContent = bl ? '前提待ち' : (v >= 1 ? '完了' : '');
+    if(full) renderLog();
+  }
+  function msgEl(m){
+    if(m.role === 'sys') return el('div','msg sys',{text: fmtTime(m.t) + '　' + m.text});
+    const d = el('div','msg ' + m.role);
+    if(m.role === 'ai') d.appendChild(el('span','who',{text:'AI'}));
+    d.appendChild(el('span','body',{text:m.text}));
+    d.appendChild(el('span','tm',{text:fmtTime(m.t)}));
+    return d;
+  }
+  function renderLog(){
+    const box = $('#pLog'); box.textContent = '';
+    const log = state.logs[selId] || [];
+    if(!log.length) box.appendChild(el('p','msg sys',{text:'まだ記録がありません。進めたことや詰まっていることを書いておくと、あとから経緯を追えます。'}));
+    log.forEach(m => box.appendChild(msgEl(m)));
+    box.scrollTop = box.scrollHeight;
+  }
+  function addLog(id, role, text){
+    (state.logs[id] = state.logs[id] || []).push({t: Date.now(), role, text});
+    update(); save();
+    if(id === selId) renderLog();
+  }
+  function record(){
+    const ta = $('#pText'), txt = ta.value.trim();
+    if(!txt || !selId || aiBusy) return;
+    ta.value = '';
+    addLog(selId, 'me', txt);
+  }
+  const KIND_LABEL = {and:'すべて必要（min）', or:'どれか1つでよい（max）', sum:'重み付き合計', prod:'積（確率的にすべて）', kofn:'k個以上'};
+  function buildPrompt(n, hasLatest){
+    const chain = [];
+    for(let c = parentMap.get(n.id); c; c = parentMap.get(c.id)) chain.unshift(c.title || '名前なし');
+    const v = vals.get(n.id) || 0;
+    const lines = [
+      'あなたは個人のタスク管理ツールに組み込まれた相談相手です。以下のタスクの状況と記録を踏まえて、日本語で短く具体的に答えてください（3〜6文程度、見出しやMarkdownは使わない）。',
+      '',
+      '対象: ' + (n.title || '（名前なし）'),
+      '上位の目標: ' + (chain.length ? chain.join(' > ') : '（これ自体が最上位の目標）'),
+      '種類: ' + (n.type === 'task' ? 'タスク' : 'サブ目標（子の集計: ' + (KIND_LABEL[n.type] || n.type) + '）'),
+      '達成度: ' + pct(v) + '%'
+    ];
+    if(n.children && n.children.length) lines.push('子:', ...n.children.map(c => '- ' + (c.title || '名前なし') + ' ' + pct(vals.get(c.id)) + '%'));
+    const own = (n.deps || []).filter(d => nodesMap.has(d));
+    if(own.length) lines.push('前提: ' + own.map(d => (nodesMap.get(d).title || '名前なし') + (vals.get(d) >= 1 ? '（完了）' : '（未完了）')).join('、'));
+    if(v < 1 && blockers(n).length) lines.push('状態: 前提が終わっていないため着手できない');
+    const log = (state.logs[n.id] || []).slice(-24);
+    if(log.length){
+      lines.push('', 'これまでの記録:');
+      log.forEach(m => lines.push('[' + fmtTime(m.t) + '] ' + (m.role === 'me' ? 'ユーザー' : m.role === 'ai' ? 'AI' : '自動記録') + ': ' + m.text));
+    }
+    lines.push('', hasLatest ? 'ユーザーの最後の書き込みに答えてください。' : 'ユーザーは質問を書かずに相談ボタンを押しました。現状を踏まえて、次に取るべき具体的な一歩を提案してください。');
+    return lines.join('\n');
+  }
+  function setBusy(b){ aiBusy = b; $('#pAsk').disabled = b; $('#pSend').disabled = b; }
+  async function askAI(){
+    if(!sample || aiBusy || !selId) return;
+    const id = selId, ta = $('#pText'), txt = ta.value.trim();
+    if(txt){ ta.value = ''; addLog(id, 'me', txt); }
+    const f = find(id); if(!f) return;
+    setBusy(true);
+    const pending = el('div','msg ai');
+    pending.appendChild(el('span','who',{text:'AI'}));
+    const body = el('span','body',{text:'考えています…'});
+    pending.appendChild(body);
+    const box = $('#pLog'); box.appendChild(pending); box.scrollTop = box.scrollHeight;
+    try{
+      const res = await sample(buildPrompt(f.node, !!txt), {onText: ({text}) => { if(selId === id){ body.textContent = text; box.scrollTop = box.scrollHeight; } }});
+      addLog(id, 'ai', (res && res.text ? res.text : '').trim() || '（応答が空でした）');
+    }catch(err){
+      pending.remove();
+      const code = err && err.code;
+      if(code === 'not_granted') $('#pAsk').hidden = true;
+      if(selId === id){
+        box.appendChild(el('p','msg sys',{text: code === 'rate_limited' ? 'AIへの問い合わせが多すぎます。少し時間をおいてから試してください。' : 'AIの応答を取得できませんでした。'}));
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+    setBusy(false);
+  }
+  $('#pSend').addEventListener('click', record);
+  $('#pAsk').addEventListener('click', askAI);
+  $('#pClose').addEventListener('click', closePanel);
+  $('#pText').addEventListener('keydown', e => {
+    if(e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229){ e.preventDefault(); record(); }
+  });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && !e.defaultPrevented && $('#picker').hidden && selId && !wide()) closePanel();
+  });
+  (async () => {
+    try{
+      if(!window.claude || !window.claude.use) return;
+      sample = await window.claude.use('sample');
+      if(sample) $('#pAsk').hidden = false;
+    }catch(e){}
+  })();
+  const capturePrev = e => {
+    const t = e.target;
+    if(t.matches && t.matches('input.range')){ const f = find(idOf(t)); if(f) t.dataset.prev = f.node.progress || 0; }
+  };
+  forest.addEventListener('focusin', capturePrev);
+  forest.addEventListener('pointerdown', capturePrev);
+  new ResizeObserver(() => drawArrows()).observe(forest);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawArrows);
+
+  /* ---------- undo ---------- */
+  let undoSnap = null, toastTimer = null;
+  function toast(msg){
+    $('#toastMsg').textContent = msg;
+    $('#toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $('#toast').hidden = true; undoSnap = null; }, 6000);
+  }
+  $('#undo').addEventListener('click', () => {
+    if(!undoSnap) return;
+    state = undoSnap; undoSnap = null; $('#toast').hidden = true;
+    render(); save();
+  });
+
+  /* ---------- events ---------- */
+  const idOf = e => { const h = e.closest('[data-id]'); return h ? h.getAttribute('data-id') : null; };
+
+  $('#addRoot').addEventListener('click', () => {
+    const r = {id:uid(), title:'', type:'and', children:[]};
+    state.roots.push(r);
+    render(r.id); save();
+    forest.lastElementChild.scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+
+  forest.addEventListener('click', e => {
+    const btn = e.target.closest('[data-act]');
+    if(!btn){
+      const zone = e.target.closest('.row, .root-head');
+      if(zone && !e.target.closest('input,select,button,textarea,label')) select(idOf(zone));
+      return;
+    }
+    const act = btn.getAttribute('data-act');
+    if(act === 'goto'){
+      const id = btn.getAttribute('data-target');
+      // 経路上の折りたたみを開く
+      let f = find(id), changed = false;
+      while(f && f.parent){ if(f.parent.collapsed){ f.parent.collapsed = false; changed = true; } f = find(f.parent.id); }
+      if(changed){ render(); save(); }
+      const row = forest.querySelector('li[data-id="'+id+'"] > .row');
+      if(row){
+        row.scrollIntoView({behavior:'smooth', block:'center'});
+        row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+      }
+      return;
+    }
+    const id = idOf(btn); if(!id) return;
+    const f = find(id); if(!f) return;
+    const n = f.node;
+    if(act === 'collapse'){ n.collapsed = !n.collapsed; render(); save(); }
+    else if(act === 'deps'){ openPicker(id); }
+    else if(act === 'chat'){ select(id); }
+    else if(act === 'add'){
+      if(n.type === 'task'){ n.type = 'and'; delete n.progress; n.children = []; }
+      n.collapsed = false;
+      const c = {id:uid(), title:'', type:'task', progress:0};
+      n.children.push(c);
+      render(c.id); save();
+    }
+    else if(act === 'del'){
+      undoSnap = clone(state);
+      f.list.splice(f.index, 1);
+      const gone = new Set();
+      (function g(m){ gone.add(m.id); (m.children || []).forEach(g); })(n);
+      indexTree();
+      nodesMap.forEach(m => { if(m.deps){ m.deps = m.deps.filter(d => !gone.has(d)); if(!m.deps.length) delete m.deps; } });
+      gone.forEach(g => { delete state.logs[g]; });
+      if(f.parent && f.parent.children.length === 0 && state.roots.indexOf(f.parent) === -1){
+        f.parent.type = 'task'; f.parent.progress = 0; delete f.parent.children; delete f.parent.collapsed;
+      }
+      render(); save();
+      toast('「' + (n.title || '名前なし') + '」を削除しました');
+    }
+  });
+
+  forest.addEventListener('input', e => {
+    const t = e.target, role = t.getAttribute('data-role');
+    const id = idOf(t); if(!id) return;
+    const f = find(id); if(!f) return;
+    if(role === 'title'){ f.node.title = t.value; update(); save(); }
+    else if(role === 'range'){ f.node.progress = Number(t.value); update(); save(); }
+    else if(role === 'target' || role === 'k' || role === 'w'){ f.node[role] = t.value; update(); save(); }
+  });
+  forest.addEventListener('change', e => {
+    const t = e.target, role = t.getAttribute('data-role');
+    if(role === 'kind'){
+      const fk = find(idOf(t)); if(!fk) return;
+      fk.node.type = t.value;
+      if(t.value === 'kofn' && !isSet(fk.node.k)) fk.node.k = Math.max(1, Math.ceil((fk.node.children || []).length / 2));
+      render(); save(); return;
+    }
+    if(role === 'range'){
+      const fr = find(idOf(t)); if(!fr) return;
+      const from = isSet(t.dataset.prev) ? Number(t.dataset.prev) : null, to = fr.node.progress || 0;
+      t.dataset.prev = to;
+      if(from !== to) addLog(fr.node.id, 'sys', from === null ? '進捗を ' + to + '% に更新' : '進捗 ' + from + '% → ' + to + '%');
+      return;
+    }
+    if(role !== 'check') return;
+    const f = find(idOf(t)); if(!f) return;
+    const from = f.node.progress || 0;
+    f.node.progress = t.checked ? 100 : 0;
+    addLog(f.node.id, 'sys', t.checked ? '完了にしました' : '未完了に戻しました（' + from + '% → 0%）');
+  });
+  forest.addEventListener('keydown', e => {
+    const t = e.target;
+    if(t.getAttribute('data-role') !== 'title' || e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    const f = find(idOf(t)); if(!f) return;
+    // Enterで同じ階層に兄弟タスクを追加（根ではサブタスクを追加）
+    const c = {id:uid(), title:'', type:'task', progress:0};
+    if(!f.parent && state.roots.includes(f.node)){
+      f.node.children = f.node.children || []; f.node.children.push(c);
+    } else f.list.splice(f.index + 1, 0, c);
+    render(c.id); save();
+  });
+
+  render();
+  setStatus(loadLocal() ? 'この端末に保存' : '');
+})();
+</script>
+</body>
 </html>
