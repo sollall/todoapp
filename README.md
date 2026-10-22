@@ -19,3 +19,8 @@ npm run dev
 
 - `npm run build` - プロダクションビルド（`dist/` に出力）
 - `npm run preview` - ビルド後のプレビュー
+
+## 公開（GitHub Pages）
+
+`main` に push すると `.github/workflows/deploy.yml` がビルドして GitHub Pages に公開します（Actions タブから手動実行も可）。
+初回のみ、リポジトリの Settings → Pages → Build and deployment の Source を「GitHub Actions」にしてください。
