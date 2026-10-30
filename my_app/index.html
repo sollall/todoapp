@@ -196,6 +196,39 @@ li.blocked>.row input.range{cursor:not-allowed}
 .pick-item .why{font-size:.72rem; color:var(--muted); margin-left:auto; white-space:nowrap}
 .sheet-foot{display:flex; justify-content:flex-end; padding-top:12px}
 
+/* schedule */
+.btn-line{background:transparent; color:var(--ink); border:1.5px solid var(--ink); border-radius:6px; padding:6.5px 12px; font-weight:500}
+.btn-line:hover{background:var(--hover)}
+.sheet.wide{width:min(720px,100%); max-height:88vh}
+.s-top{display:flex; align-items:flex-start; gap:8px}
+.s-top h2{flex:1}
+.s-opts{display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; font-size:.85rem; margin-bottom:10px}
+.s-opts label{display:inline-flex; align-items:center; gap:6px}
+.s-opts input[type=date],.s-opts input[type=number]{font:inherit; font-size:.85rem; padding:2px 6px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.s-opts input[type=number]{width:4.2em}
+.s-opts input[type=checkbox]{accent-color:var(--ink)}
+.s-body{overflow:auto; border-top:1px solid var(--line); flex:1; min-height:0; padding:6px 0 4px}
+.s-goals{list-style:none; margin:0; padding:0}
+.s-goals li{display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px 12px; padding:6px 0; border-bottom:1px solid var(--line); font-size:.9rem}
+.s-gname{font-weight:700}
+.s-eta{color:var(--muted); font-variant-numeric:tabular-nums}
+.s-eta.eta{color:var(--ink); font-weight:500}
+.s-eta.ok{color:var(--done); font-weight:700}
+.s-warn{color:var(--dep); font-size:.82rem; margin:8px 0 0}
+.s-day{margin-top:14px}
+.s-day h3{display:flex; align-items:baseline; gap:8px; font-size:.9rem; margin:0 0 4px; padding-bottom:2px; border-bottom:1.5px solid var(--ink)}
+.s-today{font-size:.7rem; color:var(--next); border:1.5px solid currentColor; border-radius:4px; padding:0 5px}
+.s-used{margin-left:auto; font-size:.75rem; font-weight:400; color:var(--muted); font-variant-numeric:tabular-nums}
+.s-item{display:grid; grid-template-columns:3.4em minmax(0,1fr) auto; gap:0 10px; align-items:center; padding:4px; border-radius:6px}
+.s-item:hover{background:var(--hover)}
+.s-h{font-size:.8rem; font-variant-numeric:tabular-nums; color:var(--muted); text-align:right}
+.s-main{min-width:0; display:flex; flex-direction:column}
+.s-title{background:none; border:0; padding:0; text-align:left; font-size:.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.s-title:hover{text-decoration:underline; text-underline-offset:3px}
+.s-crumb{font-size:.72rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.s-alts h3{border-bottom-color:var(--line); color:var(--muted)}
+.s-alts .s-title{color:var(--muted)}
+
 /* focus path */
 li.path>.row::before{border-top-color:var(--next)}
 li.path>ul.kids{border-left-color:color-mix(in srgb,var(--next) 45%,var(--line))}
@@ -233,6 +266,7 @@ li.target>.row::after{
     </div>
     <div class="top-actions">
       <span class="status" id="status" aria-live="polite"></span>
+      <button class="btn-line" id="openSched">スケジュール</button>
       <button class="btn" id="addRoot">目標を追加</button>
     </div>
   </header>
@@ -267,6 +301,18 @@ li.target>.row::after{
     <p class="hint">チェックした項目がすべて完了するまで、この項目とその下のタスクは着手できない扱いになります。</p>
     <div class="pick-list" id="pickList"></div>
     <div class="sheet-foot"><button class="btn" id="pickDone">閉じる</button></div>
+  </div>
+</div>
+<div class="modal" id="sched" hidden role="dialog" aria-modal="true" aria-labelledby="schedTitle">
+  <div class="sheet wide">
+    <div class="s-top"><h2 id="schedTitle">スケジュール</h2><button class="ic" id="schedClose" aria-label="スケジュールを閉じる" title="閉じる">×</button></div>
+    <p class="hint">前提の順番を守りながら、目標を上から順に片付ける予定を1日の作業時間に詰めます。∨・k 個以上・Σ では残り時間の少ない子だけを選びます。見積もり（時間）はここで直せます。</p>
+    <div class="s-opts">
+      <label>開始日 <input type="date" id="sStart"></label>
+      <label>1日 <input type="number" id="sHours" min="0.5" step="0.5" inputmode="decimal"> 時間</label>
+      <label><input type="checkbox" id="sWeekend"> 土日は休む</label>
+    </div>
+    <div class="s-body" id="schedBody"></div>
   </div>
 </div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="undo">元に戻す</button></div>
@@ -872,7 +918,7 @@ li.target>.row::after{
     if(e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229){ e.preventDefault(); record(); }
   });
   document.addEventListener('keydown', e => {
-    if(e.key === 'Escape' && !e.defaultPrevented && $('#picker').hidden && selId && !wide()) closePanel();
+    if(e.key === 'Escape' && !e.defaultPrevented && $('#picker').hidden && $('#sched').hidden && selId && !wide()) closePanel();
   });
   (async () => {
     try{
@@ -889,6 +935,193 @@ li.target>.row::after{
   forest.addEventListener('pointerdown', capturePrev);
   new ResizeObserver(() => drawArrows()).observe(forest);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawArrows);
+
+  /* ---------- schedule ---------- */
+  const DEF_EST = 1;
+  const estOf = n => { const e = Number(n.est); return isSet(n.est) && isFinite(e) && e >= 0 ? e : DEF_EST; };
+  const remOf = n => estOf(n) * (1 - vals.get(n.id));
+  const fmtH = h => fmtW(h) + 'h';
+  const fmtDay = d => (d.getMonth()+1) + '/' + d.getDate() + '（' + '日月火水木金土'[d.getDay()] + '）';
+  const ymd = d => d.getFullYear() + '-' + two(d.getMonth()+1) + '-' + two(d.getDate());
+  const today0 = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+  const parseYmd = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? new Date(+m[1], m[2]-1, +m[3]) : null; };
+  function schedOpts(){
+    const s = state.sched || {}, h = Number(s.hours);
+    return {start: s.start || '', hours: isSet(s.hours) && h > 0 ? h : 2, weekend: !!s.weekend};
+  }
+  // n を完了させるのに必要な葉と残り時間（∨・k個以上・Σ は残り時間あたりの効きがよい子だけを選ぶ）
+  function planOf(n, memo){
+    if(memo.has(n.id)) return memo.get(n.id);
+    let r = {leaves:[], cost:0, alts:[]};
+    if(vals.get(n.id) >= 1 || (n.type !== 'task' && !(n.children && n.children.length))){ /* 何もしない */ }
+    else if(n.type === 'task') r = {leaves:[n], cost:remOf(n), alts:[]};
+    else {
+      const ps = n.children.map(c => planOf(c, memo));
+      const idx = n.children.map((c,i) => i);
+      const byCost = [...idx].sort((a,b) => ps[a].cost - ps[b].cost);
+      let pick;
+      switch(n.type){
+        case 'or': pick = byCost.slice(0, 1); break;
+        case 'kofn': pick = byCost.slice(0, kOf(n)); break;
+        case 'sum': {
+          const T = sumTarget(n), gain = i => wOf(n.children[i]) * (1 - vals.get(n.children[i].id));
+          const eff = i => ps[i].cost > 0 ? gain(i) / ps[i].cost : Infinity;
+          let s = n.children.reduce((a,c) => a + wOf(c) * vals.get(c.id), 0);
+          pick = [];
+          for(const i of idx.filter(i => gain(i) > 0).sort((a,b) => eff(b) - eff(a))){ if(s >= T - 1e-9) break; pick.push(i); s += gain(i); }
+          break;
+        }
+        default: pick = idx;
+      }
+      const chosen = new Set(pick);
+      idx.forEach(i => {
+        if(chosen.has(i)){ r.leaves.push(...ps[i].leaves); r.cost += ps[i].cost; r.alts.push(...ps[i].alts); }
+        else if(vals.get(n.children[i].id) < 1) r.alts.push({node:n.children[i], parent:n});
+      });
+    }
+    memo.set(n.id, r);
+    return r;
+  }
+  function buildSchedule(){
+    vals.clear(); state.roots.forEach(evaluate); indexTree();
+    const memo = new Map(), plan = n => planOf(n, memo);
+    const need = new Map(), preds = new Map(), alts = new Map(), queue = [];
+    const want = n => {
+      const p = plan(n);
+      p.leaves.forEach(l => { if(!need.has(l.id)){ need.set(l.id, l); queue.push(l); } });
+      p.alts.forEach(a => alts.set(a.node.id, a));
+      return p.leaves;
+    };
+    const goals = state.roots.filter(r => r.children && r.children.length && vals.get(r.id) < 1).map(r => ({root:r, leaves:want(r), cost:plan(r).cost}));
+    // 自分と祖先の前提を完了させるのに必要な葉が、先に済んでいる必要がある
+    while(queue.length){
+      const L = queue.shift(), ps = new Set();
+      for(let cur = L; cur; cur = parentMap.get(cur.id))
+        (cur.deps || []).forEach(d => { const m = nodesMap.get(d); if(m && vals.get(d) < 1) want(m).forEach(x => { if(x !== L) ps.add(x.id); }); });
+      preds.set(L.id, ps);
+    }
+    // 目標を上から順に、ツリーの並び順で。前提はその直前に差し込む
+    const pos = new Map(); let k = 0;
+    const walk = m => { pos.set(m.id, k++); (m.children || []).forEach(walk); };
+    state.roots.forEach(walk);
+    const order = [], mark = new Map();
+    let cyclic = false;
+    const visit = id => {
+      if(mark.get(id) === 2) return;
+      if(mark.get(id) === 1){ cyclic = true; return; }
+      mark.set(id, 1);
+      [...preds.get(id)].sort((a,b) => pos.get(a) - pos.get(b)).forEach(visit);
+      mark.set(id, 2); order.push(need.get(id));
+    };
+    goals.forEach(g => g.leaves.forEach(l => visit(l.id)));
+    // 1日の作業時間に詰める
+    const o = schedOpts(), d = parseYmd(o.start) || today0(), days = [], finish = new Map();
+    const off = x => o.weekend && (x.getDay() === 0 || x.getDay() === 6);
+    let day = null, left = 0;
+    const nextDay = () => {
+      if(day) d.setDate(d.getDate() + 1);
+      while(off(d)) d.setDate(d.getDate() + 1);
+      day = {date:new Date(d), items:[], used:0}; days.push(day); left = o.hours;
+    };
+    nextDay();
+    order.forEach(n => {
+      let r = remOf(n), first = true;
+      do {
+        if(left <= 1e-9 && r > 1e-9) nextDay();
+        const h = Math.min(r, left);
+        day.items.push({node:n, h, first});
+        day.used += h; left -= h; r -= h; first = false;
+      } while(r > 1e-9 && days.length < 5000);
+      finish.set(n.id, day.date);
+    });
+    goals.forEach(g => { g.finish = g.leaves.reduce((a,l) => !a || finish.get(l.id) > a ? finish.get(l.id) : a, null); });
+    const skipped = [...alts.values()].filter(a => !plan(a.node).leaves.some(l => need.has(l.id)));
+    return {goals, order, days, skipped, cyclic, hours:o.hours};
+  }
+
+  const crumbOf = n => { const c = []; for(let p = parentMap.get(n.id); p; p = parentMap.get(p.id)) c.unshift(p.title || '名前なし'); return c.join(' / '); };
+  function estInput(n){
+    const l = el('label','wlab'); l.append('見積');
+    const i = el('input','w',{type:'number', min:'0', step:'0.5', inputmode:'decimal', 'data-est':n.id, 'aria-label':'見積もり（時間）', placeholder:String(DEF_EST)});
+    i.value = isSet(n.est) ? n.est : '';
+    l.appendChild(i); l.append('h');
+    return l;
+  }
+  function schedItem(n, hText, meta, withEst){
+    const row = el('div','s-item');
+    row.appendChild(el('span','s-h',{text:hText}));
+    const m = el('div','s-main');
+    m.appendChild(el('button','s-title',{'data-goto':n.id, title:'ツリーで表示', text:n.title || '（名前なし）'}));
+    m.appendChild(el('span','s-crumb',{text:[crumbOf(n), ...meta].filter(Boolean).join('・')}));
+    row.appendChild(m);
+    row.appendChild(withEst ? estInput(n) : el('span'));
+    return row;
+  }
+  const ALT_WHY = {or:'∨ ほかの選択肢のほうが早く終わる見込み', kofn:'k 個以上：ほかの子で数が足りる見込み', sum:'Σ：ほかの子で目標値に届く見込み'};
+  function renderSched(){
+    const S = buildSchedule(), body = $('#schedBody'), o = schedOpts();
+    $('#sStart').value = o.start || ymd(today0());
+    $('#sHours').value = o.hours;
+    $('#sWeekend').checked = o.weekend;
+    body.textContent = '';
+    const gl = el('ul','s-goals');
+    state.roots.forEach(r => {
+      const li = el('li'), g = S.goals.find(x => x.root === r);
+      li.appendChild(el('span','s-gname',{text:r.title || '（名前なし）'}));
+      let t, cls = '';
+      if(!r.children || !r.children.length) t = '子がありません';
+      else if(vals.get(r.id) >= 1){ t = '達成済み'; cls = 'ok'; }
+      else if(!g.finish) t = '見積もれません（子のないサブ目標があります）';
+      else { t = fmtDay(g.finish) + 'に達成見込み・残り ' + fmtH(g.cost); cls = 'eta'; }
+      li.appendChild(el('span','s-eta ' + cls,{text:t}));
+      gl.appendChild(li);
+    });
+    body.appendChild(gl);
+    if(S.cyclic) body.appendChild(el('p','s-warn',{text:'前提が循環しているため、一部の順番は守れていません。'}));
+    if(!S.order.length) body.appendChild(el('p','empty-hint',{text:'残っているタスクはありません。'}));
+    else {
+      const today = today0().getTime();
+      S.days.forEach(d => {
+        const sec = el('section','s-day'), h = el('h3');
+        h.append(fmtDay(d.date));
+        if(d.date.getTime() === today) h.appendChild(el('span','s-today',{text:'今日'}));
+        h.appendChild(el('span','s-used',{text:fmtH(d.used) + ' / ' + fmtH(S.hours)}));
+        sec.appendChild(h);
+        d.items.forEach(it => {
+          const p = it.node.progress || 0;
+          sec.appendChild(schedItem(it.node, fmtH(it.h), [it.first ? '' : '続き', p ? p + '%済' : ''], it.first));
+        });
+        body.appendChild(sec);
+      });
+    }
+    if(S.skipped.length){
+      const sec = el('section','s-day s-alts');
+      sec.appendChild(el('h3',null,{text:'今回はやらなくてよいもの'}));
+      S.skipped.forEach(a => sec.appendChild(schedItem(a.node, '—', [ALT_WHY[a.parent.type] || ''], a.node.type === 'task')));
+      body.appendChild(sec);
+    }
+  }
+  let schedReturn = null;
+  function openSched(){ schedReturn = document.activeElement; $('#sched').hidden = false; renderSched(); $('#schedClose').focus(); }
+  function closeSched(){ $('#sched').hidden = true; if(schedReturn && document.contains(schedReturn)) schedReturn.focus(); }
+  $('#openSched').addEventListener('click', openSched);
+  $('#schedClose').addEventListener('click', closeSched);
+  $('#sched').addEventListener('click', e => {
+    if(e.target.id === 'sched'){ closeSched(); return; }
+    const g = e.target.closest('[data-goto]');
+    if(g){ $('#sched').hidden = true; gotoNode(g.getAttribute('data-goto')); }
+  });
+  $('#sched').addEventListener('change', e => {
+    const t = e.target, sc = state.sched = state.sched || {}, eid = t.getAttribute('data-est');
+    if(t.id === 'sStart') sc.start = t.value === ymd(today0()) ? '' : t.value;
+    else if(t.id === 'sHours') sc.hours = t.value;
+    else if(t.id === 'sWeekend') sc.weekend = t.checked;
+    else if(eid){ const f = find(eid); if(!f) return; if(isSet(t.value)) f.node.est = t.value; else delete f.node.est; }
+    else return;
+    save(); renderSched();
+    if(eid){ const i = $('#schedBody input[data-est="'+eid+'"]'); if(i) i.focus(); }
+  });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('#sched').hidden){ closeSched(); e.preventDefault(); } });
 
   /* ---------- undo ---------- */
   let undoSnap = null, toastTimer = null;
@@ -914,6 +1147,18 @@ li.target>.row::after{
     forest.lastElementChild.scrollIntoView({behavior:'smooth', block:'nearest'});
   });
 
+  function gotoNode(id){
+    // 経路上の折りたたみを開く
+    let f = find(id), changed = false;
+    while(f && f.parent){ if(f.parent.collapsed){ f.parent.collapsed = false; changed = true; } f = find(f.parent.id); }
+    if(changed){ render(); save(); }
+    const row = forest.querySelector('li[data-id="'+id+'"] > .row') || forest.querySelector('section[data-id="'+id+'"] > .root-head');
+    if(row){
+      row.scrollIntoView({behavior:'smooth', block:'center'});
+      row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+    }
+  }
+
   forest.addEventListener('click', e => {
     const btn = e.target.closest('[data-act]');
     if(!btn){
@@ -922,19 +1167,7 @@ li.target>.row::after{
       return;
     }
     const act = btn.getAttribute('data-act');
-    if(act === 'goto'){
-      const id = btn.getAttribute('data-target');
-      // 経路上の折りたたみを開く
-      let f = find(id), changed = false;
-      while(f && f.parent){ if(f.parent.collapsed){ f.parent.collapsed = false; changed = true; } f = find(f.parent.id); }
-      if(changed){ render(); save(); }
-      const row = forest.querySelector('li[data-id="'+id+'"] > .row');
-      if(row){
-        row.scrollIntoView({behavior:'smooth', block:'center'});
-        row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
-      }
-      return;
-    }
+    if(act === 'goto'){ gotoNode(btn.getAttribute('data-target')); return; }
     const id = idOf(btn); if(!id) return;
     const f = find(id); if(!f) return;
     const n = f.node;
