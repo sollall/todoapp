@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "目標ツリー",
+  "short_name": "目標ツリー",
+  "description": "目標をサブ目標・タスクのツリーに分解し、達成度を親へ集計して「次の一手」を示すアプリ",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ECEFEA",
+  "theme_color": "#1F2B2E",
+  "categories": ["productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
