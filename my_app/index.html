@@ -212,7 +212,53 @@ li.target>.row::after{
 .toast button{background:transparent; color:var(--bg); border:1px solid color-mix(in srgb,var(--bg) 50%,transparent); border-radius:5px; padding:3px 10px}
 .empty{padding:40px 0; text-align:center; color:var(--muted)}
 
+/* gantt */
+.layout[hidden],.gantt[hidden]{display:none}
+.gantt{background:var(--surface); border-top:3px solid var(--ink); padding:14px 0 12px; --gl:260px; --gw:28px}
+.g-tools{display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; padding:0 18px 12px; font-size:.85rem}
+.g-tools label{display:inline-flex; align-items:center; gap:6px; color:var(--muted)}
+.g-tools input[type=date]{font:inherit; font-size:.85rem; padding:2px 6px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.g-tools input[type=checkbox]{accent-color:var(--ink)}
+.g-sum{margin-left:auto; font-variant-numeric:tabular-nums}
+.g-sum.late{color:var(--dep); font-weight:700}
+.g-scroll{overflow-x:auto; border-top:1px solid var(--line)}
+.g-grid{width:max-content; min-width:100%}
+.g-row{display:flex; height:30px}
+.g-body .g-row:hover{background:var(--hover)}
+.g-label{position:sticky; left:0; z-index:3; flex:0 0 var(--gl); width:var(--gl); background:var(--surface); border-right:1px solid var(--line); display:flex; align-items:center; gap:6px; padding-right:8px; font-size:.85rem}
+.g-label .t{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.g-label.top .t{font-weight:700}
+.g-label.full .t{color:var(--muted); text-decoration:line-through; text-decoration-color:var(--line)}
+.g-label .d{font-size:.75rem; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums}
+.g-label input{width:3.6em; font:inherit; font-size:.78rem; padding:0 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.g-head{height:38px; border-bottom:1px solid var(--line)}
+.g-head .g-label{padding-left:18px; font-size:.75rem; color:var(--muted); justify-content:space-between}
+.g-track{position:relative; flex:none}
+.g-body .g-track{background:repeating-linear-gradient(to right,transparent 0 calc(var(--gw) - 1px),color-mix(in srgb,var(--line) 45%,transparent) calc(var(--gw) - 1px) var(--gw))}
+.g-day{position:absolute; bottom:2px; width:var(--gw); text-align:center; font-size:.7rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.g-day.we{opacity:.6}
+.g-day.now{color:var(--next); font-weight:700; opacity:1}
+.g-day .m{position:absolute; bottom:100%; left:4px; white-space:nowrap; font-weight:700; color:var(--ink)}
+.g-body{position:relative}
+.g-bg{position:absolute; left:var(--gl); top:0; bottom:0; pointer-events:none}
+.g-bg div{position:absolute; top:0; bottom:0; width:var(--gw)}
+.g-bg .we{background:var(--hover)}
+.g-bg .today{background:color-mix(in srgb,var(--next) 13%,transparent); box-shadow:inset 2px 0 0 var(--next)}
+.g-bar{position:absolute; top:8px; height:14px; border-radius:3px; background:color-mix(in srgb,var(--ink) 22%,var(--surface)); overflow:hidden}
+.g-bar>div{height:100%; background:var(--ink)}
+.g-bar.full>div{background:var(--done)}
+.g-bar.late{outline:2px solid var(--dep); outline-offset:1px}
+.g-bar.grp{top:12px; height:6px; border-radius:3px; background:color-mix(in srgb,currentColor 28%,var(--surface)); color:var(--and)}
+.g-bar.grp>div{background:currentColor}
+.g-bar.grp.or{color:var(--or)} .g-bar.grp.sum{color:var(--sum)} .g-bar.grp.prod{color:var(--prod)} .g-bar.grp.kofn{color:var(--kofn)}
+.g-bar.grp.full{color:var(--done)}
+#gLinks{position:absolute; left:var(--gl); top:0; z-index:2; pointer-events:none; overflow:visible}
+.g-note{font-size:.75rem; color:var(--muted); padding:10px 18px 0; margin:0}
+
 @media (max-width:620px){
+  .gantt{--gl:150px}
+  .g-head .g-label{padding-left:10px}
+  .g-tools{padding:0 10px 12px}
   .wrap{padding:20px 12px 80px}
   .stage{padding-right:24px}
   .root{padding:14px 10px 10px}
@@ -233,10 +279,11 @@ li.target>.row::after{
     </div>
     <div class="top-actions">
       <span class="status" id="status" aria-live="polite"></span>
+      <button class="btn-ghost" id="viewBtn">ガントチャート</button>
       <button class="btn" id="addRoot">目標を追加</button>
     </div>
   </header>
-  <div class="layout">
+  <div class="layout" id="layout">
   <div class="stage" id="stage">
     <main id="forest"></main>
     <svg id="links" aria-hidden="true"><defs>
@@ -260,6 +307,15 @@ li.target>.row::after{
     </div>
   </aside>
   </div>
+  <section class="gantt" id="ganttView" hidden aria-label="ガントチャート">
+    <div class="g-tools">
+      <label>開始日 <input type="date" id="gStart"></label>
+      <label><input type="checkbox" id="gSerial"> 1つずつ順番に進める</label>
+      <span class="g-sum" id="gSum"></span>
+    </div>
+    <div class="g-scroll"><div class="g-grid" id="gGrid"></div></div>
+    <p class="g-note">所要日数と前提（ツリー側の ⇠）から日程を自動で引きます。バーの塗りは現在の進捗、赤枠は予定を過ぎた未完了の項目です。</p>
+  </section>
 </div>
 <div class="modal" id="picker" hidden role="dialog" aria-modal="true" aria-labelledby="pickTitle">
   <div class="sheet">
@@ -277,10 +333,10 @@ li.target>.row::after{
   const SAMPLE = {roots:[{id:'r1',title:'ブログを公開する',type:'and',children:[
     {id:'a',title:'最初の記事を3本書く',type:'and',children:[
       {id:'a1',title:'自己紹介の記事',type:'task',progress:100},
-      {id:'a2',title:'技術記事 1本目',type:'task',progress:60},
-      {id:'a3',title:'技術記事 2本目',type:'task',progress:0}]},
+      {id:'a2',title:'技術記事 1本目',type:'task',progress:60,days:2},
+      {id:'a3',title:'技術記事 2本目',type:'task',progress:0,days:2}]},
     {id:'b',title:'公開先を用意する',type:'or',children:[
-      {id:'b1',title:'自前サーバーを立てる',type:'task',progress:30},
+      {id:'b1',title:'自前サーバーを立てる',type:'task',progress:30,days:3},
       {id:'b2',title:'Zennにアカウントを作る',type:'task',progress:0},
       {id:'b3',title:'はてなブログを開設する',type:'task',progress:0}]},
     {id:'c',title:'SNSで告知する',type:'task',progress:0,deps:['a','b']}]}]};
@@ -560,6 +616,7 @@ li.target>.row::after{
     }
     state.roots.forEach(r => forest.appendChild(renderRoot(r)));
     update();
+    renderGantt();
     if(focusId){
       const i = forest.querySelector('[data-id="'+focusId+'"] input.title');
       if(i) i.focus();
@@ -889,6 +946,154 @@ li.target>.row::after{
   forest.addEventListener('pointerdown', capturePrev);
   new ResizeObserver(() => drawArrows()).observe(forest);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawArrows);
+
+  /* ---------- gantt ---------- */
+  const GW = 28, GR = 30, DAY = 864e5;
+  let ganttOn = false;
+  const daysOf = n => { const d = Number(n.days); return isSet(n.days) && isFinite(d) && d > 0 ? Math.min(365, d) : 1; };
+  const leavesOf = n => n.type === 'task' ? [n] : (n.children || []).flatMap(leavesOf);
+  const parseD = s => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(s || ''); return m ? Date.UTC(+m[1], m[2] - 1, +m[3]) : null; };
+  const todayUTC = () => { const d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
+  const iso = t => new Date(t).toISOString().slice(0, 10);
+  const md = t => { const d = new Date(t); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); };
+  // 前提と所要日数から、各タスクの開始・終了（開始日からの日数）を決める
+  function schedule(serial){
+    indexTree();
+    const S = new Map(), F = new Map();
+    // 項目が「完了した」とみなせる時点。まだ決まらなければ undefined
+    const fin = n => {
+      if(n.type === 'task') return F.get(n.id);
+      const cs = (n.children || []).map(fin);
+      if(!cs.length) return 0;
+      if(cs.some(x => x === undefined)) return undefined;
+      if(n.type === 'or') return Math.min(...cs);
+      if(n.type === 'kofn') return cs.sort((a,b) => a - b)[kOf(n) - 1];
+      return Math.max(...cs);
+    };
+    const rest = state.roots.flatMap(leavesOf);
+    const req = new Map(rest.map(l => {
+      const ds = [];
+      for(let c = l; c; c = parentMap.get(c.id)) (c.deps || []).forEach(d => { if(nodesMap.has(d)) ds.push(nodesMap.get(d)); });
+      return [l.id, ds];
+    }));
+    let cursor = 0;
+    while(rest.length){
+      let i = rest.findIndex(l => req.get(l.id).every(d => fin(d) !== undefined));
+      if(i < 0) i = 0;
+      const l = rest.splice(i, 1)[0];
+      const s = Math.max(serial ? cursor : 0, ...req.get(l.id).map(d => fin(d) || 0));
+      S.set(l.id, s); F.set(l.id, s + daysOf(l));
+      if(serial) cursor = s + daysOf(l);
+    }
+    return {S, F};
+  }
+  function renderGantt(focusId){
+    if(!ganttOn) return;
+    if(!state.gantt || parseD(state.gantt.start) === null){
+      state.gantt = {start: iso(todayUTC()), serial: !state.gantt || state.gantt.serial !== false};
+      save();
+    }
+    const serial = state.gantt.serial !== false, start = parseD(state.gantt.start);
+    $('#gStart').value = state.gantt.start; $('#gSerial').checked = serial;
+    vals.clear(); state.roots.forEach(evaluate);
+    const {S, F} = schedule(serial);
+    const rows = [];
+    const walk = (n, depth) => {
+      const ls = leavesOf(n);
+      rows.push({n, depth, sp: ls.length ? [Math.min(...ls.map(l => S.get(l.id))), Math.max(...ls.map(l => F.get(l.id)))] : null});
+      (n.children || []).forEach(c => walk(c, depth + 1));
+    };
+    state.roots.forEach(r => walk(r, 0));
+    const grid = $('#gGrid'), sum = $('#gSum');
+    grid.textContent = ''; sum.textContent = ''; sum.className = 'g-sum';
+    if(!F.size){ grid.appendChild(el('p','empty',{text:'タスクがありません。ツリーでタスクを追加すると日程が表示されます。'})); return; }
+    const end = Math.ceil(Math.max(...F.values()));
+    const now = Math.round((todayUTC() - start) / DAY);
+    let cols = Math.max(14, end + 1);
+    if(now >= 0 && now < cols + 30) cols = Math.max(cols, now + 2);
+    const allDone = state.roots.every(r => !leavesOf(r).length || vals.get(r.id) >= 1);
+    const over = !allDone && now >= end;
+    sum.textContent = (allDone ? '達成済み　' : '') + '完了予定 ' + md(start + (end - 1) * DAY) + '（全 ' + end + ' 日）' + (over ? '　予定を過ぎています' : '');
+    if(over) sum.classList.add('late');
+
+    const head = el('div','g-row g-head');
+    const hl = el('div','g-label'); hl.appendChild(el('span',null,{text:'項目'})); hl.appendChild(el('span',null,{text:'所要日数'}));
+    head.appendChild(hl);
+    const ht = el('div','g-track'); ht.style.width = cols * GW + 'px';
+    const bg = el('div','g-bg');
+    for(let i = 0; i < cols; i++){
+      const d = new Date(start + i * DAY), we = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+      const c = el('div','g-day' + (we ? ' we' : '') + (i === now ? ' now' : ''),{text:String(d.getUTCDate())});
+      c.style.left = i * GW + 'px';
+      if(i === 0 || d.getUTCDate() === 1) c.appendChild(el('span','m',{text:(d.getUTCMonth() + 1) + '月'}));
+      ht.appendChild(c);
+      if(we || i === now){ const b = el('div', i === now ? 'today' : 'we'); b.style.left = i * GW + 'px'; bg.appendChild(b); }
+    }
+    head.appendChild(ht); grid.appendChild(head);
+
+    const body = el('div','g-body'); body.appendChild(bg);
+    const rowIdx = new Map();
+    rows.forEach((r, i) => {
+      const n = r.n, v = vals.get(n.id) || 0, task = n.type === 'task';
+      rowIdx.set(n.id, i);
+      const row = el('div','g-row');
+      const lab = el('div','g-label' + (r.depth ? '' : ' top') + (v >= 1 ? ' full' : ''));
+      lab.style.paddingLeft = (r.depth * 14 + 18) + 'px';
+      lab.appendChild(el('span','t',{text:n.title || '（名前なし）', title:n.title || ''}));
+      if(task){
+        const inp = el('input',null,{type:'number', min:'0.5', max:'365', step:'0.5', inputmode:'decimal', 'data-gdays':n.id, 'aria-label':'所要日数'});
+        inp.value = daysOf(n);
+        lab.appendChild(inp);
+      } else if(r.sp) lab.appendChild(el('span','d',{text:fmtW(r.sp[1] - r.sp[0]) + '日'}));
+      row.appendChild(lab);
+      const tr = el('div','g-track'); tr.style.width = cols * GW + 'px';
+      if(r.sp){
+        const late = v < 1 && r.sp[1] <= now;
+        const bar = el('div','g-bar' + (task ? '' : ' grp ' + n.type) + (v >= 1 ? ' full' : '') + (late ? ' late' : ''));
+        bar.style.left = r.sp[0] * GW + 'px'; bar.style.width = Math.max(4, (r.sp[1] - r.sp[0]) * GW - 2) + 'px';
+        bar.title = (n.title || '（名前なし）') + '　' + md(start + Math.floor(r.sp[0]) * DAY) + '〜' + md(start + (Math.ceil(r.sp[1]) - 1) * DAY) + '（' + fmtW(r.sp[1] - r.sp[0]) + '日）　進捗 ' + pct(v) + '%';
+        const fill = el('div'); fill.style.width = pct(v) + '%'; bar.appendChild(fill);
+        tr.appendChild(bar);
+      }
+      row.appendChild(tr); body.appendChild(row);
+    });
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.id = 'gLinks'; svg.setAttribute('aria-hidden','true');
+    svg.setAttribute('width', cols * GW); svg.setAttribute('height', rows.length * GR);
+    svg.innerHTML = '<defs><marker id="gArrWait" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--dep)"/></marker><marker id="gArrOk" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill:var(--muted)"/></marker></defs>';
+    rows.forEach((r, i) => (r.n.deps || []).forEach(d => {
+      const j = rowIdx.get(d); if(j === undefined || j === i) return;
+      const a = rows[j].sp, b = r.sp; if(!a || !b) return;
+      const x1 = a[1] * GW - 2, y1 = j * GR + GR / 2, x2 = b[0] * GW, y2 = i * GR + GR / 2;
+      const done = vals.get(d) >= 1;
+      const p = document.createElementNS(ns, 'path');
+      p.setAttribute('d', x2 >= x1 + 12
+        ? 'M' + x1 + ',' + y1 + 'H' + (x1 + 7) + 'V' + y2 + 'H' + (x2 - 1)
+        : 'M' + x1 + ',' + y1 + 'H' + (x1 + 7) + 'V' + (y1 + (y2 > y1 ? 1 : -1) * GR / 2) + 'H' + (x2 - 9) + 'V' + y2 + 'H' + (x2 - 1));
+      p.setAttribute('class', 'link ' + (done ? 'ok' : 'wait'));
+      p.setAttribute('marker-end', done ? 'url(#gArrOk)' : 'url(#gArrWait)');
+      svg.appendChild(p);
+    }));
+    body.appendChild(svg);
+    grid.appendChild(body);
+    if(focusId){ const f = grid.querySelector('input[data-gdays="' + focusId + '"]'); if(f) f.focus(); }
+  }
+  $('#viewBtn').addEventListener('click', () => {
+    ganttOn = !ganttOn;
+    $('#layout').hidden = ganttOn; $('#ganttView').hidden = !ganttOn; $('#addRoot').hidden = ganttOn;
+    $('#viewBtn').textContent = ganttOn ? 'ツリーに戻る' : 'ガントチャート';
+    if(ganttOn) renderGantt(); else update();
+  });
+  $('#gStart').addEventListener('change', e => { if(parseD(e.target.value) === null) return; state.gantt.start = e.target.value; save(); renderGantt(); });
+  $('#gSerial').addEventListener('change', e => { state.gantt.serial = e.target.checked; save(); renderGantt(); });
+  $('#gGrid').addEventListener('change', e => {
+    const id = e.target.getAttribute('data-gdays'); if(!id) return;
+    const f = find(id); if(!f) return;
+    const d = Number(e.target.value);
+    if(isFinite(d) && d > 0) f.node.days = Math.min(365, d); else delete f.node.days;
+    save(); renderGantt(id);
+  });
 
   /* ---------- undo ---------- */
   let undoSnap = null, toastTimer = null;
