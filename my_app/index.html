@@ -11,7 +11,7 @@
 :root{
   --bg:#ECEFEA; --surface:#F7F9F5; --ink:#1F2B2E; --muted:#5E6B6A; --line:#C6CEC4;
   --and:#3346A0; --or:#9A6716; --done:#3F7A4A; --next:#8A3FA0; --hover:rgba(31,43,46,.05);
-  --sum:#2C7A76; --prod:#8A5A2B; --kofn:#55702A; --dep:#B23A3A;
+  --sum:#2C7A76; --kofn:#55702A; --dep:#B23A3A;
   color-scheme:light;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
@@ -19,14 +19,14 @@
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --bg:#151A1C; --surface:#1C2326; --ink:#E3E9E5; --muted:#93A09E; --line:#36434A;
-    --sum:#6CC7BF; --prod:#E0A774; --kofn:#A9C977; --dep:#F0857A;
+    --sum:#6CC7BF; --kofn:#A9C977; --dep:#F0857A;
     --and:#9AA7F5; --or:#E3B05A; --done:#7FC28C; --next:#D79CE8; --hover:rgba(227,233,229,.06);
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#151A1C; --surface:#1C2326; --ink:#E3E9E5; --muted:#93A09E; --line:#36434A;
-  --sum:#6CC7BF; --prod:#E0A774; --kofn:#A9C977; --dep:#F0857A;
+  --sum:#6CC7BF; --kofn:#A9C977; --dep:#F0857A;
   --and:#9AA7F5; --or:#E3B05A; --done:#7FC28C; --next:#D79CE8; --hover:rgba(227,233,229,.06);
   color-scheme:dark;
 }
@@ -89,7 +89,7 @@ li.node{position:relative}
 .caret.closed{transform:rotate(-90deg)}
 .kindcell{grid-area:kind; display:flex; align-items:center}
 .kind{border:1.5px solid currentColor; background:transparent; border-radius:4px; padding:0 6px; font-size:.78rem; font-weight:700; line-height:1.6; white-space:nowrap}
-.kind.and{color:var(--and)} .kind.or{color:var(--or)} .kind.sum{color:var(--sum)} .kind.prod{color:var(--prod)} .kind.kofn{color:var(--kofn)}
+.kind.and{color:var(--and)} .kind.or{color:var(--or)} .kind.sum{color:var(--sum)} .kind.kofn{color:var(--kofn)}
 select.kind{
   -webkit-appearance:none; appearance:none; font:inherit; font-size:.78rem; font-weight:700; line-height:1.6; padding:0 18px 0 6px;
   background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
@@ -111,7 +111,6 @@ select.kind option{color:var(--ink); background:var(--surface)}
 .node.and>.row .bar>div{background:var(--and)}
 .node.or>.row .bar>div{background:var(--or)}
 .node.sum>.row .bar>div{background:var(--sum)}
-.node.prod>.row .bar>div{background:var(--prod)}
 .node.kofn>.row .bar>div{background:var(--kofn)}
 .node.full>.row .bar>div{background:var(--done)}
 input.range{
@@ -229,7 +228,7 @@ li.target>.row::after{
   <header class="top">
     <div>
       <h1>目標ツリー</h1>
-      <p class="lede">子の達成度を、集計方法（<i>min</i>・<i>max</i>・<i>Σ</i>・<i>Π</i>・<i>k</i>個以上）に従って親へ伝えます。⇠ で前提を設定、行をクリックすると進捗の記録が開きます。</p>
+      <p class="lede">子の達成度を、集計方法（<i>min</i>・<i>max</i>・<i>Σ</i>・<i>k</i>個以上）に従って親へ伝えます。⇠ で前提を設定、行をクリックすると進捗の記録が開きます。</p>
     </div>
     <div class="top-actions">
       <span class="status" id="status" aria-live="polite"></span>
@@ -291,9 +290,16 @@ li.target>.row::after{
   const clone = o => JSON.parse(JSON.stringify(o));
 
   function loadLocal(){ try{ const s = localStorage.getItem(KEY); if(s) return JSON.parse(s); }catch(e){} return null; }
+  // 廃止した集計方法「積」は「すべて（min）」として扱う
+  function migrate(s){
+    const walk = n => { if(!n) return; if(n.type === 'prod') n.type = 'and'; if(Array.isArray(n.children)) n.children.forEach(walk); };
+    s.roots.forEach(walk);
+    if(!s.logs || typeof s.logs !== 'object') s.logs = {};
+    return s;
+  }
   let state = loadLocal() || clone(SAMPLE);
   if(!state || !Array.isArray(state.roots)) state = clone(SAMPLE);
-  if(!state.logs || typeof state.logs !== 'object') state.logs = {};
+  migrate(state);
 
   /* ---------- math ---------- */
   const vals = new Map();
@@ -311,7 +317,6 @@ li.target>.row::after{
       switch(n.type){
         case 'or': v = Math.max(...cs); break;
         case 'sum': { const T = sumTarget(n); const s = cs.reduce((a,x,i) => a + wOf(n.children[i]) * x, 0); v = T > 0 ? Math.min(1, s / T) : 0; break; }
-        case 'prod': v = cs.reduce((a,x) => a * x, 1); break;
         case 'kofn': { const sorted = [...cs].sort((a,b) => b - a); v = sorted[kOf(n) - 1] || 0; break; }
         default: v = Math.min(...cs);
       }
@@ -332,7 +337,7 @@ li.target>.row::after{
       case 'or': pick = best(V); break;                                  // 完了に一番近い選択肢
       case 'sum': pick = best(c => wOf(c) + V(c) * 1e-6); break;         // 重み＝1単位あたりの寄与が最大
       case 'kofn': pick = [...n.children].sort((a,b) => V(b) - V(a))[kOf(n) - 1]; break; // k番目が値を決めている
-      default: pick = best(c => -V(c));                                  // min・積はいちばん低い子
+      default: pick = best(c => -V(c));                                  // min はいちばん低い子
     }
     return [n, ...focusPath(pick)];
   }
@@ -430,7 +435,7 @@ li.target>.row::after{
         const d = snap.data();
         if(d && typeof d.json === 'string'){
           const parsed = JSON.parse(d.json);
-          if(parsed && Array.isArray(parsed.roots)){ state = parsed; if(!state.logs || typeof state.logs !== 'object') state.logs = {}; try{ localStorage.setItem(KEY, d.json); }catch(e){} render(); }
+          if(parsed && Array.isArray(parsed.roots)){ state = migrate(parsed); try{ localStorage.setItem(KEY, d.json); }catch(e){} render(); }
         }
         setStatus('保存済み');
       } else {
@@ -451,7 +456,7 @@ li.target>.row::after{
     i.value = n.title || '';
     return i;
   }
-  const KINDS = [['and','∧ すべて'],['or','∨ どれか'],['sum','Σ 合計'],['prod','Π 積'],['kofn','k 個以上']];
+  const KINDS = [['and','∧ すべて'],['or','∨ どれか'],['sum','Σ 合計'],['kofn','k 個以上']];
   function kindControl(n){
     const s = el('select','kind ' + n.type,{'data-role':'kind','aria-label':'集計方法'});
     KINDS.forEach(([v,l]) => { const o = el('option',null,{value:v, text:l}); if(v === n.type) o.selected = true; s.appendChild(o); });
@@ -573,7 +578,6 @@ li.target>.row::after{
     switch(n.type){
       case 'or': return 'max(' + n.children.map(P).join(', ') + ')' + res;
       case 'sum': return '(' + n.children.map(c => { const w = wOf(c); return (w === 1 ? '' : fmtW(w) + '×') + P(c); }).join(' + ') + ') / ' + fmtW(sumTarget(n)) + res;
-      case 'prod': return n.children.map(c => vals.get(c.id).toFixed(2)).join(' × ') + ' = ' + vals.get(n.id).toFixed(2);
       case 'kofn': return kOf(n) + '番目に大きい値(' + n.children.map(P).join(', ') + ')' + res;
       default: return 'min(' + n.children.map(P).join(', ') + ')' + res;
     }
@@ -814,7 +818,7 @@ li.target>.row::after{
     ta.value = '';
     addLog(selId, 'me', txt);
   }
-  const KIND_LABEL = {and:'すべて必要（min）', or:'どれか1つでよい（max）', sum:'重み付き合計', prod:'積（確率的にすべて）', kofn:'k個以上'};
+  const KIND_LABEL = {and:'すべて必要（min）', or:'どれか1つでよい（max）', sum:'重み付き合計', kofn:'k個以上'};
   function buildPrompt(n, hasLatest){
     const chain = [];
     for(let c = parentMap.get(n.id); c; c = parentMap.get(c.id)) chain.unshift(c.title || '名前なし');
