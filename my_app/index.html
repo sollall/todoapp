@@ -101,6 +101,9 @@ select.kind option{color:var(--ink); background:var(--surface)}
 .formula{font-family:"Noto Serif",Georgia,serif; font-style:italic; font-size:.8rem; color:var(--muted); padding:0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .sub{display:flex; align-items:center; gap:8px; min-width:0}
 .sub .formula{flex:1; min-width:0}
+select.who{font:inherit; font-size:.72rem; max-width:12em; padding:0 2px; border:1px solid var(--line); border-radius:4px; background:transparent; color:var(--ink)}
+select.who.auto{color:var(--muted); border-style:dashed}
+select.who.me{border-color:var(--next); color:var(--next); font-weight:700}
 .param,.wlab{display:inline-flex; align-items:center; gap:4px; font-size:.75rem; color:var(--muted); white-space:nowrap}
 .param{padding-left:4px}
 .param input,input.w{width:3.4em; font:inherit; font-size:.78rem; padding:0 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
@@ -653,6 +656,13 @@ li.target>.row::after{
     row.appendChild(kc);
     const main = el('div','main');
     main.appendChild(titleInput(n, n.type === 'task' ? 'タスク名' : 'サブ目標名'));
+    if(n.type === 'task' && members().length){
+      const sub = el('div','sub');
+      const lab = el('label','param'); lab.append('担当');
+      lab.appendChild(el('select','who',{'data-role':'who', 'aria-label':'担当'}));
+      sub.appendChild(lab);
+      main.appendChild(sub);
+    }
     if(n.type !== 'task'){
       const sub = el('div','sub');
       const pc = paramControl(n); if(pc) sub.appendChild(pc);
@@ -859,7 +869,19 @@ li.target>.row::after{
         if(chain.slice(1).some(n => n.collapsed)) next.append('（折りたたみ内）');
       }
     });
-    renderToday();
+    const P = plan();
+    renderToday(P);
+    // 担当欄（ガントチャートと同じ割り当て）
+    forest.querySelectorAll('select[data-role="who"]').forEach(sel => {
+      const n = nodesMap.get(idOf(sel)); if(!n) return;
+      const own = memberOf(n.who), w = P.whoOf(n.id);
+      sel.classList.toggle('auto', !own);
+      sel.classList.toggle('me', !!(me && w && w.id === me));
+      if(document.activeElement === sel) return;
+      sel.textContent = '';
+      sel.appendChild(el('option',null,{value:'', text:'自動' + (!own && w ? '（' + memberName(w) + '）' : '')}));
+      members().forEach(m => { const o = el('option',null,{value:m.id, text:memberName(m)}); if(own && own.id === m.id) o.selected = true; sel.appendChild(o); });
+    });
     markSel();
     renderPanel(false);
     requestAnimationFrame(drawArrows);
@@ -1171,9 +1193,8 @@ li.target>.row::after{
   // 「今日やること」を誰の分で見るか（この端末だけの設定）
   const ME_KEY = 'goal-tree-me';
   let me = ''; try{ me = localStorage.getItem(ME_KEY) || ''; }catch(e){}
-  function renderToday(){
+  function renderToday(P = plan()){
     const box = $('#today'); box.textContent = '';
-    const P = plan();
     if(me && !memberOf(me)) me = '';
     const live = l => { for(let c = parentMap.get(l.id); c; c = parentMap.get(c.id)) if(vals.get(c.id) >= 1) return false; return true; };
     const all = state.roots.flatMap(leavesOf)
@@ -1226,7 +1247,8 @@ li.target>.row::after{
     if(e.target.id !== 'todayWho') return;
     me = e.target.value;
     try{ if(me) localStorage.setItem(ME_KEY, me); else localStorage.removeItem(ME_KEY); }catch(err){}
-    renderToday();
+    update();
+    const s = $('#todayWho'); if(s) s.focus();
   });
   $('#today').addEventListener('click', e => { const b = e.target.closest('[data-target]'); if(b) gotoNode(b.getAttribute('data-target')); });
   function renderGantt(focusId){
@@ -1494,6 +1516,11 @@ li.target>.row::after{
   });
   forest.addEventListener('change', e => {
     const t = e.target, role = t.getAttribute('data-role');
+    if(role === 'who'){
+      const fw = find(idOf(t)); if(!fw) return;
+      if(memberOf(t.value)) fw.node.who = t.value; else delete fw.node.who;
+      t.blur(); update(); save(); t.focus(); return;
+    }
     if(role === 'kind'){
       const fk = find(idOf(t)); if(!fk) return;
       fk.node.type = t.value;
