@@ -149,8 +149,12 @@ input.range::-moz-range-thumb{width:12px; height:12px; border-radius:50%; backgr
 .p-crumb{font-size:.75rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .p-titlerow{display:flex; align-items:flex-start; gap:8px}
 .p-titlerow h2{font-size:1.05rem; margin:2px 0 6px; flex:1; line-height:1.4}
-.p-stat{display:flex; align-items:center; gap:10px; font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.p-stat{display:flex; flex-wrap:wrap; align-items:center; gap:10px; font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums}
 .p-stat .bar{flex:0 1 160px}
+.p-who{margin-left:auto; display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+.p-who[hidden]{display:none}
+.p-who select{font:inherit; font-size:.8rem; max-width:12em; padding:1px 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.p-who select.auto{color:var(--muted); border-style:dashed}
 #pBar{background:var(--ink)}
 #pState.wait{color:var(--dep); font-weight:700}
 #pState.ok{color:var(--done); font-weight:700}
@@ -340,7 +344,7 @@ li.target>.row::after{
       <div class="p-head">
         <div class="p-crumb" id="pCrumb"></div>
         <div class="p-titlerow"><h2 id="pTitle"></h2><button class="ic" id="pClose" aria-label="記録を閉じる" title="閉じる">×</button></div>
-        <div class="p-stat"><div class="bar"><div id="pBar"></div></div><span id="pPct"></span><span id="pState"></span></div>
+        <div class="p-stat"><div class="bar"><div id="pBar"></div></div><span id="pPct"></span><span id="pState"></span><label class="p-who" id="pWhoBox" hidden>担当<select id="pWho" aria-label="担当"></select></label></div>
       </div>
       <div class="p-log" id="pLog" aria-live="polite"></div>
       <div class="p-compose">
@@ -869,7 +873,7 @@ li.target>.row::after{
         if(chain.slice(1).some(n => n.collapsed)) next.append('（折りたたみ内）');
       }
     });
-    const P = plan();
+    const P = lastPlan = plan();
     renderToday(P);
     // 担当欄（ガントチャートと同じ割り当て）
     forest.querySelectorAll('select[data-role="who"]').forEach(sel => {
@@ -973,6 +977,15 @@ li.target>.row::after{
     const st = $('#pState');
     st.className = bl ? 'wait' : (v >= 1 ? 'ok' : '');
     st.textContent = bl ? '前提待ち' : (v >= 1 ? '完了' : '');
+    const wb = $('#pWhoBox'), ws = $('#pWho');
+    wb.hidden = n.type !== 'task' || !members().length || !lastPlan;
+    if(!wb.hidden && document.activeElement !== ws){
+      const own = memberOf(n.who), w = lastPlan.whoOf(n.id);
+      ws.classList.toggle('auto', !own);
+      ws.textContent = '';
+      ws.appendChild(el('option',null,{value:'', text:'自動' + (!own && w ? '（' + memberName(w) + '）' : '')}));
+      members().forEach(m => { const o = el('option',null,{value:m.id, text:memberName(m)}); if(own && own.id === m.id) o.selected = true; ws.appendChild(o); });
+    }
     if(full) renderLog();
   }
   function msgEl(m){
@@ -1087,6 +1100,14 @@ li.target>.row::after{
   const iso = t => new Date(t).toISOString().slice(0, 10);
   const md = t => { const d = new Date(t); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); };
   const members = () => state.members || [];
+  let lastPlan = null;
+  // 担当を変え、進捗の記録にも残す（addLog が再計算と保存をする）
+  function setWho(n, id){
+    const to = memberOf(id) ? id : undefined;
+    if((n.who || undefined) === to) return;
+    if(to) n.who = to; else delete n.who;
+    addLog(n.id, 'sys', to ? '担当を ' + memberName(memberOf(to)) + ' にしました' : '担当を自動に戻しました');
+  }
   const memberOf = id => members().find(m => m.id === id) || null;
   const memberName = m => (m && m.name) || '（名前なし）';
   // 前提・所要日数・担当者から、各タスクの開始・終了（開始日からの作業日数）と担当を決める。
@@ -1388,6 +1409,10 @@ li.target>.row::after{
     $('#viewBtn').textContent = ganttOn ? 'ツリーに戻る' : 'ガントチャート';
     if(ganttOn) renderGantt(); else update();
   });
+  $('#pWho').addEventListener('change', e => {
+    const f = selId ? find(selId) : null; if(!f) return;
+    const t = e.target; t.blur(); setWho(f.node, t.value); if(ganttOn) renderGantt(); t.focus();
+  });
   $('#gStart').addEventListener('change', e => { if(parseD(e.target.value) === null) return; state.gantt.start = e.target.value; save(); renderGantt(); });
   $('#gMemForm').addEventListener('submit', e => {
     e.preventDefault();
@@ -1429,8 +1454,7 @@ li.target>.row::after{
     const wid = e.target.getAttribute('data-gwho');
     if(wid){
       const f = find(wid); if(!f) return;
-      if(memberOf(e.target.value)) f.node.who = e.target.value; else delete f.node.who;
-      save(); render();
+      setWho(f.node, e.target.value); render();
       const s = $('#gGrid select[data-gwho="' + wid + '"]'); if(s) s.focus();
       return;
     }
@@ -1518,8 +1542,7 @@ li.target>.row::after{
     const t = e.target, role = t.getAttribute('data-role');
     if(role === 'who'){
       const fw = find(idOf(t)); if(!fw) return;
-      if(memberOf(t.value)) fw.node.who = t.value; else delete fw.node.who;
-      t.blur(); update(); save(); t.focus(); return;
+      t.blur(); setWho(fw.node, t.value); t.focus(); return;
     }
     if(role === 'kind'){
       const fk = find(idOf(t)); if(!fk) return;
