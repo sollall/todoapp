@@ -230,7 +230,7 @@ li.target>.row::after{
 .today .crumb{font-size:.75rem; color:var(--muted); flex:1 1 120px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .today .when{font-size:.75rem; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap}
 .tag{font-size:.7rem; font-weight:700; border:1.5px solid currentColor; border-radius:4px; padding:0 5px; white-space:nowrap}
-.tag.late,.tag.crit{color:var(--dep)} .tag.now{color:var(--next)}
+.tag.late{color:var(--dep)} .tag.now{color:var(--next)}
 .today h2 label{font-size:.75rem; font-weight:400; color:var(--muted); margin-left:auto; display:inline-flex; align-items:center; gap:6px}
 .today h2 select{font:inherit; font-size:.78rem; padding:0 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
 .today .who{font-size:.72rem; color:var(--muted); white-space:nowrap}
@@ -273,10 +273,7 @@ li.target>.row::after{
 .g-bg .now{background:color-mix(in srgb,var(--next) 13%,transparent); box-shadow:inset 2px 0 0 var(--next)}
 .g-bar{position:absolute; top:8px; height:14px; border-radius:3px; background:color-mix(in srgb,var(--ink) 22%,var(--surface)); overflow:hidden}
 .g-bar>div{height:100%; background:var(--ink)}
-.g-bar.crit{background:color-mix(in srgb,var(--dep) 26%,var(--surface))}
-.g-bar.crit>div{background:var(--dep)}
 .g-bar.full>div{background:var(--done)}
-.g-slack{position:absolute; top:14px; height:0; border-top:2px dotted var(--muted)}
 .g-bar.late{outline:2px solid var(--dep); outline-offset:1px}
 .g-bar.grp{top:12px; height:6px; border-radius:3px; background:color-mix(in srgb,currentColor 28%,var(--surface)); color:var(--and)}
 .g-bar.grp>div{background:currentColor}
@@ -416,8 +413,7 @@ li.target>.row::after{
     const walk = n => { if(!n) return; if(n.type === 'prod') n.type = 'and'; if(Array.isArray(n.children)) n.children.forEach(walk); };
     s.roots.forEach(walk);
     if(!s.logs || typeof s.logs !== 'object') s.logs = {};
-    // 「1つずつ順番に進める」は担当者に置き換え：順番＝メンバー1人、並行＝メンバーなし
-    if(!Array.isArray(s.members)) s.members = s.gantt && s.gantt.serial === false ? [] : [{id:uid(), name:'自分'}];
+    if(!Array.isArray(s.members)) s.members = [{id:uid(), name:'自分'}];
     s.members = s.members.filter(m => m && m.id);
     if(s.gantt) delete s.gantt.serial;
     return s;
@@ -1112,11 +1108,11 @@ li.target>.row::after{
   const memberName = m => (m && m.name) || '（名前なし）';
   // 前提・所要日数・担当者から、各タスクの開始・終了（開始日からの作業日数）と担当を決める。
   // 同じ人のタスクは1つずつ順番に、別の人どうしは並行に進む。担当なしのタスクは、いちばん早く着手できるメンバーに自動で割り当てる。
-  // メンバーがいなければ人数の制約なし（前提さえ済めば並行に進む）。
-  function schedule(xid, extra){
-    const dur = l => daysOf(l) + (l.id === xid ? extra : 0);
+  // メンバーがいなければ1人で1つずつ順番に進める。
+  function schedule(){
+    const dur = daysOf;
     indexTree();
-    const ms = members(), mi = new Map(ms.map((m, i) => [m.id, i])), free = ms.map(() => 0);
+    const ms = members(), mi = new Map(ms.map((m, i) => [m.id, i])), free = ms.length ? ms.map(() => 0) : [0];
     const S = new Map(), F = new Map(), W = new Map();
     let memo = new Map();
     // 項目が「完了した」とみなせる時点。まだ決まらなければ undefined
@@ -1144,7 +1140,7 @@ li.target>.row::after{
     // そのタスクをいま割り付けるとしたら、いつ・誰が始められるか
     const slot = l => {
       const r = Math.max(0, ...req.get(l.id).map(d => fin(d) || 0));
-      if(!ms.length) return {s:r, w:-1};
+      if(!ms.length) return {s:Math.max(r, free[0]), w:0};
       if(mi.has(l.who)){ const w = mi.get(l.who); return {s:Math.max(r, free[w]), w}; }
       let s = Infinity, w = -1;
       ms.forEach((m, j) => { const t = Math.max(r, free[j]); if(t < s - 1e-9){ s = t; w = j; } });
@@ -1161,7 +1157,7 @@ li.target>.row::after{
       if(bi < 0){ bi = 0; best = slot(rest[0]); }
       const l = rest.splice(bi, 1)[0];
       S.set(l.id, best.s); F.set(l.id, best.s + dur(l)); W.set(l.id, best.w);
-      if(best.w >= 0) free[best.w] = best.s + dur(l);
+      free[best.w] = best.s + dur(l);
       memo = new Map();
     }
     return {S, F, W};
@@ -1198,18 +1194,8 @@ li.target>.row::after{
     let now = nowCol;
     if(nowCol > 0){ now = 0; for(let i = 0; i < nowCol; i++) if(!isOff(i)) now++; }
     const {S, F, W} = schedule();
-    const rootOf = id => { let c = nodesMap.get(id); while(parentMap.has(c.id)) c = parentMap.get(c.id); return c; };
-    // そのタスクが属する目標の完了時点（タスクを x 日延ばした場合）
-    const goalEnd = (id, x) => { const f = x ? schedule(id, x).F : F; return Math.max(...leavesOf(rootOf(id)).map(l => f.get(l.id))); };
-    const open = state.roots.flatMap(leavesOf).filter(l => vals.get(l.id) < 1);
-    const crit = new Set(open.filter(l => goalEnd(l.id, .01) > goalEnd(l.id, 0) + 1e-9).map(l => l.id));
-    const slack = id => {
-      const base = goalEnd(id, 0); let lo = 0, hi = base + 1;
-      for(let i = 0; i < 12; i++){ const m = (lo + hi) / 2; if(goalEnd(id, m) > base + 1e-9) hi = m; else lo = m; }
-      return Math.round(lo * 2) / 2;
-    };
-    const whoOf = id => { const w = W.get(id); return w >= 0 ? members()[w] : null; };
-    return {start, S, F, W, whoOf, crit, slack, allCrit: crit.size === open.length, now, nowCol, isOff, cal, xs, xe, hasOff: skipWe || offs.length > 0, offToday: isOff(nowCol)};
+    const whoOf = id => members()[W.get(id)] || null;
+    return {start, S, F, W, whoOf, now, nowCol, isOff, cal, xs, xe, hasOff: skipWe || offs.length > 0, offToday: isOff(nowCol)};
   }
   // 「今日やること」を誰の分で見るか（この端末だけの設定）
   const ME_KEY = 'goal-tree-me';
@@ -1220,7 +1206,7 @@ li.target>.row::after{
     const live = l => { for(let c = parentMap.get(l.id); c; c = parentMap.get(c.id)) if(vals.get(c.id) >= 1) return false; return true; };
     const all = state.roots.flatMap(leavesOf)
       .filter(l => vals.get(l.id) < 1 && !blockers(l).length && live(l))
-      .sort((a,b) => P.S.get(a.id) - P.S.get(b.id) || P.crit.has(b.id) - P.crit.has(a.id) || P.F.get(a.id) - P.F.get(b.id));
+      .sort((a,b) => P.S.get(a.id) - P.S.get(b.id) || P.F.get(a.id) - P.F.get(b.id));
     const items = me ? all.filter(l => { const w = P.whoOf(l.id); return w && w.id === me; }) : all;
     box.hidden = !all.length;
     if(!all.length) return;
@@ -1246,7 +1232,6 @@ li.target>.row::after{
       if(showWho){ const w = P.whoOf(l.id); if(w) li.appendChild(el('span','who',{text:memberName(w) + (memberOf(l.who) ? '' : '（自動）')})); }
       if(f <= P.now) li.appendChild(el('span','tag late',{text:'予定超過'}));
       else if(s < P.now || (s <= P.now && !P.offToday)) li.appendChild(el('span','tag now',{text:'今日の予定'}));
-      if(!P.allCrit && P.crit.has(l.id)) li.appendChild(el('span','tag crit',{text:'遅れると完了日に響く'}));
       li.appendChild(el('span','when',{text:md(P.start + P.cal(Math.floor(s)) * DAY) + '〜' + md(P.start + P.cal(Math.ceil(f) - 1) * DAY) + '　' + pct(vals.get(l.id)) + '%'}));
       ol.appendChild(li);
     });
@@ -1276,7 +1261,6 @@ li.target>.row::after{
     if(!ganttOn) return;
     vals.clear(); state.roots.forEach(evaluate); indexTree();
     const P = plan(), {start, S, F, now, nowCol, isOff, cal, xs, xe} = P, ms = members();
-    const showCrit = !P.allCrit;
     $('#gStart').value = state.gantt.start; $('#gSkipWe').checked = !!state.gantt.skipWe;
     const mchips = $('#gMemList'); mchips.textContent = '';
     ms.forEach(m => {
@@ -1284,7 +1268,7 @@ li.target>.row::after{
       c.appendChild(el('button',null,{type:'button', 'data-mem':m.id, 'aria-label':memberName(m) + 'をメンバーから外す', title:'外す', text:'×'}));
       mchips.appendChild(c);
     });
-    if(!ms.length) mchips.appendChild(el('span',null,{text:'なし（全タスクを並行で進める扱い）'}));
+    if(!ms.length) mchips.appendChild(el('span',null,{text:'なし（1人で順番に進める扱い）'}));
     const chips = $('#gOffList'); chips.textContent = '';
     (state.gantt.offs || []).forEach((o, i) => {
       const a = parseD(o.from), b = parseD(o.to); if(a === null || b === null) return;
@@ -1294,10 +1278,8 @@ li.target>.row::after{
     });
     $('#gNote').textContent = '所要日数と前提（ツリー側の ⇠）から日程を自動で引きます。バーの塗りは現在の進捗、赤枠は予定を過ぎた未完了の項目です。'
       + (P.hasOff ? '斜線の日は休みで、所要日数に数えず飛ばして日程を引きます。' : '')
-      + (ms.length ? '同じ人のタスクは1つずつ順番に、別の人どうしは並行に進めます。担当が「自動」のタスクは、いちばん早く手が空く人に割り当てます（バーの右に担当を表示）。'
-        : 'メンバーがいないので、前提さえ済めばすべてのタスクを同時に進める扱いです。人数に合わせた日程にするにはメンバーを追加してください。')
-      + (showCrit ? '赤いバーはクリティカルパス（遅れると目標の完了日が延びるタスク）、点線はその日数だけ遅れても完了日に響かない余裕です。'
-        : '今はどのタスクの遅れも完了日に響きます。');
+      + (ms.length > 1 ? '同じ人のタスクは1つずつ順番に、別の人どうしは並行に進めます。担当が「自動」のタスクは、いちばん早く手が空く人に割り当てます（バーの右に担当を表示）。'
+        : 'タスクは1つずつ順番に進める前提です。メンバーを追加すると、別の人どうしは並行に進める日程になります。');
     const rows = [];
     const walk = (n, depth) => {
       const ls = leavesOf(n);
@@ -1313,7 +1295,7 @@ li.target>.row::after{
     if(nowCol >= 0 && nowCol < cols + 30) cols = Math.max(cols, nowCol + 2);
     const allDone = state.roots.every(r => !leavesOf(r).length || vals.get(r.id) >= 1);
     const over = !allDone && now >= end;
-    sum.textContent = (allDone ? '達成済み　' : '') + '完了予定 ' + md(start + cal(end - 1) * DAY) + '（' + (P.hasOff ? '休みを除き ' : '全 ') + end + ' 日）' + (over ? '　予定を過ぎています' : '') + (showCrit && P.crit.size ? '　クリティカル ' + P.crit.size + ' 件' : '');
+    sum.textContent = (allDone ? '達成済み　' : '') + '完了予定 ' + md(start + cal(end - 1) * DAY) + '（' + (P.hasOff ? '休みを除き ' : '全 ') + end + ' 日）' + (over ? '　予定を過ぎています' : '');
     if(over) sum.classList.add('late');
 
     const head = el('div','g-row g-head');
@@ -1362,19 +1344,16 @@ li.target>.row::after{
       const tr = el('div','g-track'); tr.style.width = cols * GW + 'px';
       if(r.sp){
         const late = v < 1 && r.sp[1] <= now;
-        const isCrit = task && showCrit && P.crit.has(n.id);
-        const sl = task && showCrit && v < 1 && !isCrit ? P.slack(n.id) : 0;
-        const bar = el('div','g-bar' + (task ? '' : ' grp ' + n.type) + (isCrit ? ' crit' : '') + (v >= 1 ? ' full' : '') + (late ? ' late' : ''));
+        const bar = el('div','g-bar' + (task ? '' : ' grp ' + n.type) + (v >= 1 ? ' full' : '') + (late ? ' late' : ''));
         bar.style.left = xs(r.sp[0]) * GW + 'px'; bar.style.width = Math.max(4, (xe(r.sp[1]) - xs(r.sp[0])) * GW - 2) + 'px';
-        bar.title = (n.title || '（名前なし）') + '　' + md(start + cal(Math.floor(r.sp[0])) * DAY) + '〜' + md(start + cal(Math.ceil(r.sp[1]) - 1) * DAY) + '（' + fmtW(r.sp[1] - r.sp[0]) + '日）　進捗 ' + pct(v) + '%' + (isCrit ? '　クリティカル' : sl ? '　余裕 ' + fmtW(sl) + '日' : '');
-        if(sl){ const t = el('div','g-slack'); t.style.left = xe(r.sp[1]) * GW + 'px'; t.style.width = (xe(r.sp[1] + sl) - xe(r.sp[1])) * GW + 'px'; t.title = '余裕 ' + fmtW(sl) + '日'; tr.appendChild(t); }
+        bar.title = (n.title || '（名前なし）') + '　' + md(start + cal(Math.floor(r.sp[0])) * DAY) + '〜' + md(start + cal(Math.ceil(r.sp[1]) - 1) * DAY) + '（' + fmtW(r.sp[1] - r.sp[0]) + '日）　進捗 ' + pct(v) + '%';
         const fill = el('div'); fill.style.width = pct(v) + '%'; bar.appendChild(fill);
         tr.appendChild(bar);
         const who = task && ms.length > 1 ? P.whoOf(n.id) : null;
         if(who){
           bar.title += '　担当 ' + memberName(who) + (memberOf(n.who) ? '' : '（自動）');
           const t = el('span','g-who',{text:memberName(who)});
-          t.style.left = ((sl ? xe(r.sp[1] + sl) : xe(r.sp[1])) * GW + 4) + 'px';
+          t.style.left = (xe(r.sp[1]) * GW + 4) + 'px';
           tr.appendChild(t);
         }
       }
