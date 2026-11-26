@@ -309,7 +309,7 @@ li.target>.row::after{
   <header class="top">
     <div>
       <h1>目標ツリー</h1>
-      <p class="lede">子の達成度を重み付きで合計し、目標に対する割合を親の達成度にします（「すべて」なら目標＝重みの合計、「どれか1つ」なら目標＝1）。⇠ で前提を設定、行をクリックすると進捗の記録が開きます。</p>
+      <p class="lede">親の達成度は、子の達成度の重み付き平均です。⇠ で前提を設定、行をクリックすると進捗の記録が開きます。</p>
     </div>
     <div class="top-actions">
       <span class="status" id="status" aria-live="polite"></span>
@@ -387,10 +387,10 @@ li.target>.row::after{
       {id:'a1',title:'自己紹介の記事',type:'task',progress:100},
       {id:'a2',title:'技術記事 1本目',type:'task',progress:60,days:2},
       {id:'a3',title:'技術記事 2本目',type:'task',progress:0,days:2}]},
-    {id:'b',title:'公開先を用意する',type:'sum',target:1,children:[
-      {id:'b1',title:'自前サーバーを立てる',type:'task',progress:30,days:3},
-      {id:'b2',title:'Zennにアカウントを作る',type:'task',progress:0},
-      {id:'b3',title:'はてなブログを開設する',type:'task',progress:0}]},
+    {id:'b',title:'公開先を用意する',type:'sum',children:[
+      {id:'b1',title:'ブログサービスを選ぶ',type:'task',progress:30},
+      {id:'b2',title:'アカウントを作る',type:'task',progress:0},
+      {id:'b3',title:'プロフィールを設定する',type:'task',progress:0}]},
     {id:'c',title:'SNSで告知する',type:'task',progress:0,deps:['a','b']}]}]};
 
   const $ = s => document.querySelector(s);
@@ -399,20 +399,16 @@ li.target>.row::after{
   const clone = o => JSON.parse(JSON.stringify(o));
 
   function loadLocal(){ try{ const s = localStorage.getItem(KEY); if(s) return JSON.parse(s); }catch(e){} return null; }
-  // 集計方法は「合計」に一本化した。旧方式は目標値で置き換える:
-  // すべて(and/prod) → 目標=子の数、どれか(or) → 目標=1、k個以上(kofn) → 目標=k（重みはいずれも1）
+  // 集計方法は「子の重み付き平均」だけにした。旧方式（すべて/どれか/k個以上/積）と目標値は、
+  // 重み1の平均として読み替える（旧方式では重みは使われていなかったのでリセットする）
   function migrate(s){
     const walk = n => {
       if(!n) return;
       const kids = Array.isArray(n.children) ? n.children : [];
-      if(n.type !== 'task' && n.type !== 'sum'){
-        const old = n.type;
-        kids.forEach(c => { delete c.w; });
-        if(old === 'or') n.target = 1;
-        else if(old === 'kofn') n.target = Math.max(1, Math.min(kids.length, Math.round(Number(n.k) || 1)));
-        else delete n.target;
-        delete n.k;
+      if(n.type !== 'task'){
+        if(n.type !== 'sum') kids.forEach(c => { delete c.w; });
         n.type = 'sum';
+        delete n.target; delete n.k;
       }
       kids.forEach(walk);
     };
@@ -431,7 +427,7 @@ li.target>.row::after{
   const vals = new Map();
   const isSet = x => x !== undefined && x !== null && x !== '';
   const wOf = c => { const w = Number(c.w); return isSet(c.w) && isFinite(w) && w >= 0 ? w : 1; };
-  const sumTarget = n => { const t = Number(n.target); return isSet(n.target) && t > 0 ? t : n.children.reduce((a,c) => a + wOf(c), 0); };
+  const sumTarget = n => n.children.reduce((a,c) => a + wOf(c), 0);
   const fmtW = x => String(Math.round(x*100)/100);
   function evaluate(n){
     let v;
@@ -612,15 +608,7 @@ li.target>.row::after{
     return i;
   }
   function kindControl(n){
-    return el('span','kind sum',{title:'子の重み付き合計 ÷ 目標', text:'Σ'});
-  }
-  function paramControl(n){
-    const l = el('label','param');
-    l.append('目標');
-    const i = el('input',null,{type:'number', inputmode:'decimal', min:'0', step:'any', 'data-role':'target', 'aria-label':'合計の目標値（空欄なら重みの合計）', placeholder:fmtW((n.children || []).reduce((a,c) => a + wOf(c), 0))});
-    i.value = isSet(n.target) ? n.target : '';
-    l.appendChild(i);
-    return l;
+    return el('span','kind sum',{title:'子の重み付き平均', text:'Σ'});
   }
 
   function chatBtn(){
@@ -654,7 +642,6 @@ li.target>.row::after{
     }
     if(n.type !== 'task'){
       const sub = el('div','sub');
-      const pc = paramControl(n); if(pc) sub.appendChild(pc);
       sub.appendChild(el('div','formula'));
       main.appendChild(sub);
     }
@@ -701,7 +688,6 @@ li.target>.row::after{
     const tools = el('div','root-tools');
     tools.appendChild(el('p','next'));
     tools.appendChild(kindControl(r));
-    const rp = paramControl(r); if(rp) tools.appendChild(rp);
     tools.appendChild(chatBtn());
     tools.appendChild(el('button','ic',{'data-act':'add', title:'子を追加','aria-label':'子を追加', text:'＋'}));
     tools.appendChild(el('button','ic',{'data-act':'del', title:'目標を削除','aria-label':'目標を削除', text:'×'}));
@@ -796,7 +782,6 @@ li.target>.row::after{
     vals.clear();
     state.roots.forEach(evaluate);
     indexTree();
-    forest.querySelectorAll('input[data-role="target"]').forEach(i => { const f = find(idOf(i)); if(f && f.node.children) i.placeholder = fmtW(sumTarget(f.node)); });
     forest.querySelectorAll('input[data-role="k"]').forEach(i => { const f = find(idOf(i)); if(f && f.node.children) i.max = String(f.node.children.length); });
     forest.querySelectorAll('.path,.target').forEach(e => e.classList.remove('path','target'));
     const walk = n => {
@@ -1003,7 +988,7 @@ li.target>.row::after{
       '',
       '対象: ' + (n.title || '（名前なし）'),
       '上位の目標: ' + (chain.length ? chain.join(' > ') : '（これ自体が最上位の目標）'),
-      '種類: ' + (n.type === 'task' ? 'タスク' : 'サブ目標（子の重み付き合計が目標 ' + fmtW(sumTarget(n)) + ' に達すれば完了）'),
+      '種類: ' + (n.type === 'task' ? 'タスク' : 'サブ目標（達成度は子の重み付き平均）'),
       '達成度: ' + pct(v) + '%'
     ];
     if(n.children && n.children.length) lines.push('子:', ...n.children.map(c => '- ' + (c.title || '名前なし') + ' ' + pct(vals.get(c.id)) + '%'));
@@ -1107,12 +1092,7 @@ li.target>.row::after{
         const cs = (n.children || []).map(fin);
         if(!cs.length) v = 0;
         else if(cs.some(x => x === undefined)) v = undefined;
-        else {
-          // 終わった順に重みを足していき、目標に届いた時点で完了
-          const T = sumTarget(n), ord = n.children.map((c, i) => [cs[i], wOf(c)]).sort((a,b) => a[0] - b[0]);
-          let acc = 0; v = ord.length ? ord[ord.length - 1][0] : 0;
-          for(const [t, w] of ord){ acc += w; if(acc >= T - 1e-9){ v = t; break; } }
-        }
+        else v = Math.max(...cs);   // 子がすべて終わった時点
       }
       memo.set(n.id, v);
       return v;
@@ -1501,7 +1481,7 @@ li.target>.row::after{
     const f = find(id); if(!f) return;
     if(role === 'title'){ f.node.title = t.value; update(); save(); }
     else if(role === 'range'){ f.node.progress = Number(t.value); update(); save(); }
-    else if(role === 'target' || role === 'w'){ f.node[role] = t.value; update(); save(); }
+    else if(role === 'w'){ f.node[role] = t.value; update(); save(); }
   });
   forest.addEventListener('change', e => {
     const t = e.target, role = t.getAttribute('data-role');
