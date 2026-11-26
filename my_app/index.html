@@ -11,7 +11,7 @@
 :root{
   --bg:#ECEFEA; --surface:#F7F9F5; --ink:#1F2B2E; --muted:#5E6B6A; --line:#C6CEC4;
   --and:#3346A0; --or:#9A6716; --done:#3F7A4A; --next:#8A3FA0; --hover:rgba(31,43,46,.05);
-  --sum:#2C7A76; --kofn:#55702A; --dep:#B23A3A;
+  --sum:#2C7A76; --dep:#B23A3A;
   color-scheme:light;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
@@ -19,14 +19,14 @@
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --bg:#151A1C; --surface:#1C2326; --ink:#E3E9E5; --muted:#93A09E; --line:#36434A;
-    --sum:#6CC7BF; --kofn:#A9C977; --dep:#F0857A;
+    --sum:#6CC7BF; --dep:#F0857A;
     --and:#9AA7F5; --or:#E3B05A; --done:#7FC28C; --next:#D79CE8; --hover:rgba(227,233,229,.06);
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#151A1C; --surface:#1C2326; --ink:#E3E9E5; --muted:#93A09E; --line:#36434A;
-  --sum:#6CC7BF; --kofn:#A9C977; --dep:#F0857A;
+  --sum:#6CC7BF; --dep:#F0857A;
   --and:#9AA7F5; --or:#E3B05A; --done:#7FC28C; --next:#D79CE8; --hover:rgba(227,233,229,.06);
   color-scheme:dark;
 }
@@ -79,7 +79,7 @@ ul.kids{list-style:none; margin:0 0 0 11px; padding:0 0 0 14px; border-left:1.5p
 .root>ul.kids{margin-left:4px}
 li.node{position:relative}
 .row{
-  display:grid; grid-template-columns:20px 100px minmax(0,1fr) 190px 112px;
+  display:grid; grid-template-columns:20px 36px minmax(0,1fr) 250px 112px;
   grid-template-areas:"caret kind main meter acts";
   align-items:center; gap:0 8px; padding:4px 4px; border-radius:6px; position:relative;
 }
@@ -89,13 +89,7 @@ li.node{position:relative}
 .caret.closed{transform:rotate(-90deg)}
 .kindcell{grid-area:kind; display:flex; align-items:center}
 .kind{border:1.5px solid currentColor; background:transparent; border-radius:4px; padding:0 6px; font-size:.78rem; font-weight:700; line-height:1.6; white-space:nowrap}
-.kind.and{color:var(--and)} .kind.or{color:var(--or)} .kind.sum{color:var(--sum)} .kind.kofn{color:var(--kofn)}
-select.kind{
-  -webkit-appearance:none; appearance:none; font:inherit; font-size:.78rem; font-weight:700; line-height:1.6; padding:0 18px 0 6px;
-  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
-  background-position:right 9px center,right 5px center; background-size:4px 4px; background-repeat:no-repeat;
-}
-select.kind option{color:var(--ink); background:var(--surface)}
+.kind.sum{color:var(--sum)}
 .chk{width:18px; height:18px; accent-color:var(--done); margin:0 0 0 4px; cursor:pointer}
 .main{grid-area:main; min-width:0}
 .formula{font-family:"Noto Serif",Georgia,serif; font-style:italic; font-size:.8rem; color:var(--muted); padding:0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
@@ -111,13 +105,10 @@ select.who.me{border-color:var(--next); color:var(--next); font-weight:700}
 .pct{font-size:.8rem; font-variant-numeric:tabular-nums; color:var(--muted); width:3.2em; text-align:right}
 .bar{flex:1; height:6px; border-radius:3px; background:var(--line); overflow:hidden}
 .bar>div{height:100%; width:0; transition:width .25s}
-.node.and>.row .bar>div{background:var(--and)}
-.node.or>.row .bar>div{background:var(--or)}
 .node.sum>.row .bar>div{background:var(--sum)}
-.node.kofn>.row .bar>div{background:var(--kofn)}
 .node.full>.row .bar>div{background:var(--done)}
 input.range{
-  -webkit-appearance:none; appearance:none; flex:1; height:6px; border-radius:3px; margin:0; cursor:pointer;
+  -webkit-appearance:none; appearance:none; flex:1; min-width:0; height:6px; border-radius:3px; margin:0; cursor:pointer;
   background:linear-gradient(to right,var(--ink) 0 var(--v,0%),var(--line) var(--v,0%) 100%);
 }
 .node.full input.range{background:linear-gradient(to right,var(--done) 0 100%,var(--line) 100%)}
@@ -277,7 +268,7 @@ li.target>.row::after{
 .g-bar.late{outline:2px solid var(--dep); outline-offset:1px}
 .g-bar.grp{top:12px; height:6px; border-radius:3px; background:color-mix(in srgb,currentColor 28%,var(--surface)); color:var(--and)}
 .g-bar.grp>div{background:currentColor}
-.g-bar.grp.or{color:var(--or)} .g-bar.grp.sum{color:var(--sum)} .g-bar.grp.prod{color:var(--prod)} .g-bar.grp.kofn{color:var(--kofn)}
+.g-bar.grp.sum{color:var(--sum)}
 .g-bar.grp.full{color:var(--done)}
 #gLinks{position:absolute; left:var(--gl); top:0; z-index:2; pointer-events:none; overflow:visible}
 .g-hol,.g-mem{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:0 18px 12px; font-size:.8rem; color:var(--muted)}
@@ -318,7 +309,7 @@ li.target>.row::after{
   <header class="top">
     <div>
       <h1>目標ツリー</h1>
-      <p class="lede">子の達成度を、集計方法（<i>min</i>・<i>max</i>・<i>Σ</i>・<i>k</i>個以上）に従って親へ伝えます。⇠ で前提を設定、行をクリックすると進捗の記録が開きます。</p>
+      <p class="lede">子の達成度を重み付きで合計し、目標に対する割合を親の達成度にします（「すべて」なら目標＝重みの合計、「どれか1つ」なら目標＝1）。⇠ で前提を設定、行をクリックすると進捗の記録が開きます。</p>
     </div>
     <div class="top-actions">
       <span class="status" id="status" aria-live="polite"></span>
@@ -391,12 +382,12 @@ li.target>.row::after{
 <script>
 (function(){
   const KEY = 'goal-tree-v1';
-  const SAMPLE = {roots:[{id:'r1',title:'ブログを公開する',type:'and',children:[
-    {id:'a',title:'最初の記事を3本書く',type:'and',children:[
+  const SAMPLE = {roots:[{id:'r1',title:'ブログを公開する',type:'sum',children:[
+    {id:'a',title:'最初の記事を3本書く',type:'sum',children:[
       {id:'a1',title:'自己紹介の記事',type:'task',progress:100},
       {id:'a2',title:'技術記事 1本目',type:'task',progress:60,days:2},
       {id:'a3',title:'技術記事 2本目',type:'task',progress:0,days:2}]},
-    {id:'b',title:'公開先を用意する',type:'or',children:[
+    {id:'b',title:'公開先を用意する',type:'sum',target:1,children:[
       {id:'b1',title:'自前サーバーを立てる',type:'task',progress:30,days:3},
       {id:'b2',title:'Zennにアカウントを作る',type:'task',progress:0},
       {id:'b3',title:'はてなブログを開設する',type:'task',progress:0}]},
@@ -408,9 +399,23 @@ li.target>.row::after{
   const clone = o => JSON.parse(JSON.stringify(o));
 
   function loadLocal(){ try{ const s = localStorage.getItem(KEY); if(s) return JSON.parse(s); }catch(e){} return null; }
-  // 廃止した集計方法「積」は「すべて（min）」として扱う
+  // 集計方法は「合計」に一本化した。旧方式は目標値で置き換える:
+  // すべて(and/prod) → 目標=子の数、どれか(or) → 目標=1、k個以上(kofn) → 目標=k（重みはいずれも1）
   function migrate(s){
-    const walk = n => { if(!n) return; if(n.type === 'prod') n.type = 'and'; if(Array.isArray(n.children)) n.children.forEach(walk); };
+    const walk = n => {
+      if(!n) return;
+      const kids = Array.isArray(n.children) ? n.children : [];
+      if(n.type !== 'task' && n.type !== 'sum'){
+        const old = n.type;
+        kids.forEach(c => { delete c.w; });
+        if(old === 'or') n.target = 1;
+        else if(old === 'kofn') n.target = Math.max(1, Math.min(kids.length, Math.round(Number(n.k) || 1)));
+        else delete n.target;
+        delete n.k;
+        n.type = 'sum';
+      }
+      kids.forEach(walk);
+    };
     s.roots.forEach(walk);
     if(!s.logs || typeof s.logs !== 'object') s.logs = {};
     if(!Array.isArray(s.members)) s.members = [{id:uid(), name:'自分'}];
@@ -427,7 +432,6 @@ li.target>.row::after{
   const isSet = x => x !== undefined && x !== null && x !== '';
   const wOf = c => { const w = Number(c.w); return isSet(c.w) && isFinite(w) && w >= 0 ? w : 1; };
   const sumTarget = n => { const t = Number(n.target); return isSet(n.target) && t > 0 ? t : n.children.reduce((a,c) => a + wOf(c), 0); };
-  const kOf = n => Math.max(1, Math.min(n.children.length, Math.round(Number(n.k) || 1)));
   const fmtW = x => String(Math.round(x*100)/100);
   function evaluate(n){
     let v;
@@ -435,12 +439,8 @@ li.target>.row::after{
     else if(!n.children || !n.children.length) v = 0;
     else {
       const cs = n.children.map(evaluate);
-      switch(n.type){
-        case 'or': v = Math.max(...cs); break;
-        case 'sum': { const T = sumTarget(n); const s = cs.reduce((a,x,i) => a + wOf(n.children[i]) * x, 0); v = T > 0 ? Math.min(1, s / T) : 0; break; }
-        case 'kofn': { const sorted = [...cs].sort((a,b) => b - a); v = sorted[kOf(n) - 1] || 0; break; }
-        default: v = Math.min(...cs);
-      }
+      const T = sumTarget(n), sm = cs.reduce((a,x,i) => a + wOf(n.children[i]) * x, 0);
+      v = T > 0 ? Math.min(1, sm / T) : 0;
     }
     vals.set(n.id, v);
     return v;
@@ -451,15 +451,8 @@ li.target>.row::after{
     if(n.type === 'task' || !n.children || !n.children.length) return [n];
     const inc = n.children.filter(c => vals.get(c.id) < 1);
     if(!inc.length) return [n];
-    const best = key => inc.reduce((p,c) => key(c) > key(p) ? c : p);
-    const V = c => vals.get(c.id);
-    let pick;
-    switch(n.type){
-      case 'or': pick = best(V); break;                                  // 完了に一番近い選択肢
-      case 'sum': pick = best(c => wOf(c) + V(c) * 1e-6); break;         // 重み＝1単位あたりの寄与が最大
-      case 'kofn': pick = [...n.children].sort((a,b) => V(b) - V(a))[kOf(n) - 1]; break; // k番目が値を決めている
-      default: pick = best(c => -V(c));                                  // min はいちばん低い子
-    }
+    // 重み＝1単位あたりの寄与が最大の子。同じ重みなら完了に近いものから
+    const pick = inc.reduce((p,c) => (wOf(c) + vals.get(c.id) * 1e-6) > (wOf(p) + vals.get(p.id) * 1e-6) ? c : p);
     return [n, ...focusPath(pick)];
   }
   const pct = v => Math.round(v*100);
@@ -618,18 +611,14 @@ li.target>.row::after{
     i.value = n.title || '';
     return i;
   }
-  const KINDS = [['and','∧ すべて'],['or','∨ どれか'],['sum','Σ 合計'],['kofn','k 個以上']];
   function kindControl(n){
-    const s = el('select','kind ' + n.type,{'data-role':'kind','aria-label':'集計方法'});
-    KINDS.forEach(([v,l]) => { const o = el('option',null,{value:v, text:l}); if(v === n.type) o.selected = true; s.appendChild(o); });
-    return s;
+    return el('span','kind sum',{title:'子の重み付き合計 ÷ 目標', text:'Σ'});
   }
   function paramControl(n){
-    if(n.type !== 'sum' && n.type !== 'kofn') return null;
     const l = el('label','param');
-    const i = el('input',null,{type:'number', inputmode:'decimal'});
-    if(n.type === 'sum'){ l.append('目標'); i.setAttribute('min','0'); i.setAttribute('step','any'); i.setAttribute('data-role','target'); i.setAttribute('aria-label','合計の目標値（空欄なら重みの合計）'); i.value = isSet(n.target) ? n.target : ''; }
-    else { l.append('k ='); i.setAttribute('min','1'); i.setAttribute('step','1'); i.setAttribute('data-role','k'); i.setAttribute('aria-label','必要な個数'); i.value = isSet(n.k) ? n.k : 1; }
+    l.append('目標');
+    const i = el('input',null,{type:'number', inputmode:'decimal', min:'0', step:'any', 'data-role':'target', 'aria-label':'合計の目標値（空欄なら重みの合計）', placeholder:fmtW((n.children || []).reduce((a,c) => a + wOf(c), 0))});
+    i.value = isSet(n.target) ? n.target : '';
     l.appendChild(i);
     return l;
   }
@@ -672,7 +661,7 @@ li.target>.row::after{
     const dl = el('div','deps'); dl.hidden = true; main.appendChild(dl);
     row.appendChild(main);
     const meter = el('div','meter');
-    if(parent && parent.type === 'sum'){
+    if(parent){
       const l = el('label','wlab'); l.append('重み');
       const w = el('input','w',{type:'number', min:'0', step:'any', inputmode:'decimal', 'data-role':'w', 'aria-label':'重み', placeholder:'1'});
       w.value = isSet(n.w) ? n.w : '';
@@ -745,12 +734,7 @@ li.target>.row::after{
     if(!n.children || !n.children.length) return '';
     const P = c => pct(vals.get(c.id));
     const res = ' = ' + pct(vals.get(n.id));
-    switch(n.type){
-      case 'or': return 'max(' + n.children.map(P).join(', ') + ')' + res;
-      case 'sum': return '(' + n.children.map(c => { const w = wOf(c); return (w === 1 ? '' : fmtW(w) + '×') + P(c); }).join(' + ') + ') / ' + fmtW(sumTarget(n)) + res;
-      case 'kofn': return kOf(n) + '番目に大きい値(' + n.children.map(P).join(', ') + ')' + res;
-      default: return 'min(' + n.children.map(P).join(', ') + ')' + res;
-    }
+    return '(' + n.children.map(c => { const w = wOf(c); return (w === 1 ? '' : fmtW(w) + '×') + P(c); }).join(' + ') + ') / ' + fmtW(sumTarget(n)) + res;
   }
 
   function depsLine(box, n, isBlocked){
@@ -1010,7 +994,6 @@ li.target>.row::after{
     ta.value = '';
     addLog(selId, 'me', txt);
   }
-  const KIND_LABEL = {and:'すべて必要（min）', or:'どれか1つでよい（max）', sum:'重み付き合計', kofn:'k個以上'};
   function buildPrompt(n, hasLatest){
     const chain = [];
     for(let c = parentMap.get(n.id); c; c = parentMap.get(c.id)) chain.unshift(c.title || '名前なし');
@@ -1020,7 +1003,7 @@ li.target>.row::after{
       '',
       '対象: ' + (n.title || '（名前なし）'),
       '上位の目標: ' + (chain.length ? chain.join(' > ') : '（これ自体が最上位の目標）'),
-      '種類: ' + (n.type === 'task' ? 'タスク' : 'サブ目標（子の集計: ' + (KIND_LABEL[n.type] || n.type) + '）'),
+      '種類: ' + (n.type === 'task' ? 'タスク' : 'サブ目標（子の重み付き合計が目標 ' + fmtW(sumTarget(n)) + ' に達すれば完了）'),
       '達成度: ' + pct(v) + '%'
     ];
     if(n.children && n.children.length) lines.push('子:', ...n.children.map(c => '- ' + (c.title || '名前なし') + ' ' + pct(vals.get(c.id)) + '%'));
@@ -1124,9 +1107,12 @@ li.target>.row::after{
         const cs = (n.children || []).map(fin);
         if(!cs.length) v = 0;
         else if(cs.some(x => x === undefined)) v = undefined;
-        else if(n.type === 'or') v = Math.min(...cs);
-        else if(n.type === 'kofn') v = cs.sort((a,b) => a - b)[kOf(n) - 1];
-        else v = Math.max(...cs);
+        else {
+          // 終わった順に重みを足していき、目標に届いた時点で完了
+          const T = sumTarget(n), ord = n.children.map((c, i) => [cs[i], wOf(c)]).sort((a,b) => a[0] - b[0]);
+          let acc = 0; v = ord.length ? ord[ord.length - 1][0] : 0;
+          for(const [t, w] of ord){ acc += w; if(acc >= T - 1e-9){ v = t; break; } }
+        }
       }
       memo.set(n.id, v);
       return v;
@@ -1462,7 +1448,7 @@ li.target>.row::after{
   const idOf = e => { const h = e.closest('[data-id]'); return h ? h.getAttribute('data-id') : null; };
 
   $('#addRoot').addEventListener('click', () => {
-    const r = {id:uid(), title:'', type:'and', children:[]};
+    const r = {id:uid(), title:'', type:'sum', children:[]};
     state.roots.push(r);
     render(r.id); save();
     forest.lastElementChild.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -1487,7 +1473,7 @@ li.target>.row::after{
     else if(act === 'deps'){ openPicker(id); }
     else if(act === 'chat'){ select(id); }
     else if(act === 'add'){
-      if(n.type === 'task'){ n.type = 'and'; delete n.progress; delete n.who; n.children = []; }
+      if(n.type === 'task'){ n.type = 'sum'; delete n.progress; delete n.who; n.children = []; }
       n.collapsed = false;
       const c = {id:uid(), title:'', type:'task', progress:0};
       n.children.push(c);
@@ -1515,19 +1501,13 @@ li.target>.row::after{
     const f = find(id); if(!f) return;
     if(role === 'title'){ f.node.title = t.value; update(); save(); }
     else if(role === 'range'){ f.node.progress = Number(t.value); update(); save(); }
-    else if(role === 'target' || role === 'k' || role === 'w'){ f.node[role] = t.value; update(); save(); }
+    else if(role === 'target' || role === 'w'){ f.node[role] = t.value; update(); save(); }
   });
   forest.addEventListener('change', e => {
     const t = e.target, role = t.getAttribute('data-role');
     if(role === 'who'){
       const fw = find(idOf(t)); if(!fw) return;
       t.blur(); setWho(fw.node, t.value); t.focus(); return;
-    }
-    if(role === 'kind'){
-      const fk = find(idOf(t)); if(!fk) return;
-      fk.node.type = t.value;
-      if(t.value === 'kofn' && !isSet(fk.node.k)) fk.node.k = Math.max(1, Math.ceil((fk.node.children || []).length / 2));
-      render(); save(); return;
     }
     if(role === 'range'){
       const fr = find(idOf(t)); if(!fr) return;
