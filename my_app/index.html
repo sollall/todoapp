@@ -101,6 +101,9 @@ select.kind option{color:var(--ink); background:var(--surface)}
 .formula{font-family:"Noto Serif",Georgia,serif; font-style:italic; font-size:.8rem; color:var(--muted); padding:0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .sub{display:flex; align-items:center; gap:8px; min-width:0}
 .sub .formula{flex:1; min-width:0}
+select.who{font:inherit; font-size:.72rem; max-width:12em; padding:0 2px; border:1px solid var(--line); border-radius:4px; background:transparent; color:var(--ink)}
+select.who.auto{color:var(--muted); border-style:dashed}
+select.who.me{border-color:var(--next); color:var(--next); font-weight:700}
 .param,.wlab{display:inline-flex; align-items:center; gap:4px; font-size:.75rem; color:var(--muted); white-space:nowrap}
 .param{padding-left:4px}
 .param input,input.w{width:3.4em; font:inherit; font-size:.78rem; padding:0 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
@@ -146,8 +149,12 @@ input.range::-moz-range-thumb{width:12px; height:12px; border-radius:50%; backgr
 .p-crumb{font-size:.75rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .p-titlerow{display:flex; align-items:flex-start; gap:8px}
 .p-titlerow h2{font-size:1.05rem; margin:2px 0 6px; flex:1; line-height:1.4}
-.p-stat{display:flex; align-items:center; gap:10px; font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.p-stat{display:flex; flex-wrap:wrap; align-items:center; gap:10px; font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums}
 .p-stat .bar{flex:0 1 160px}
+.p-who{margin-left:auto; display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+.p-who[hidden]{display:none}
+.p-who select{font:inherit; font-size:.8rem; max-width:12em; padding:1px 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.p-who select.auto{color:var(--muted); border-style:dashed}
 #pBar{background:var(--ink)}
 #pState.wait{color:var(--dep); font-weight:700}
 #pState.ok{color:var(--done); font-weight:700}
@@ -224,11 +231,14 @@ li.target>.row::after{
 .today .when{font-size:.75rem; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap}
 .tag{font-size:.7rem; font-weight:700; border:1.5px solid currentColor; border-radius:4px; padding:0 5px; white-space:nowrap}
 .tag.late{color:var(--dep)} .tag.now{color:var(--next)}
+.today h2 label{font-size:.75rem; font-weight:400; color:var(--muted); margin-left:auto; display:inline-flex; align-items:center; gap:6px}
+.today h2 select{font:inherit; font-size:.78rem; padding:0 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.today .who{font-size:.72rem; color:var(--muted); white-space:nowrap}
 .today .more{font-size:.75rem; color:var(--muted); margin:6px 0 0}
 
 /* gantt */
 .layout[hidden],.gantt[hidden]{display:none}
-.gantt{background:var(--surface); border-top:3px solid var(--ink); padding:14px 0 12px; --gl:260px; --gw:28px}
+.gantt{background:var(--surface); border-top:3px solid var(--ink); padding:14px 0 12px; --gl:350px; --gw:28px}
 .g-tools{display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; padding:0 18px 12px; font-size:.85rem}
 .g-tools label{display:inline-flex; align-items:center; gap:6px; color:var(--muted)}
 .g-tools input[type=date]{font:inherit; font-size:.85rem; padding:2px 6px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
@@ -244,6 +254,9 @@ li.target>.row::after{
 .g-label.top .t{font-weight:700}
 .g-label.full .t{color:var(--muted); text-decoration:line-through; text-decoration-color:var(--line)}
 .g-label .d{font-size:.75rem; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums}
+.g-label select{width:7.6em; flex:none; font:inherit; font-size:.75rem; padding:0 2px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.g-label select.auto{color:var(--muted); border-style:dashed}
+.g-who{position:absolute; top:7px; font-size:.7rem; color:var(--muted); white-space:nowrap; pointer-events:none}
 .g-label input{width:3.6em; font:inherit; font-size:.78rem; padding:0 4px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
 .g-head{height:38px; border-bottom:1px solid var(--line)}
 .g-head .g-label{padding-left:18px; font-size:.75rem; color:var(--muted); justify-content:space-between}
@@ -267,13 +280,13 @@ li.target>.row::after{
 .g-bar.grp.or{color:var(--or)} .g-bar.grp.sum{color:var(--sum)} .g-bar.grp.prod{color:var(--prod)} .g-bar.grp.kofn{color:var(--kofn)}
 .g-bar.grp.full{color:var(--done)}
 #gLinks{position:absolute; left:var(--gl); top:0; z-index:2; pointer-events:none; overflow:visible}
-.g-hol{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:0 18px 12px; font-size:.8rem; color:var(--muted)}
-.g-hol form{display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px}
-.g-hol input[type=date],.g-hol input[type=text]{font:inherit; font-size:.8rem; padding:2px 6px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
+.g-hol,.g-mem{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:0 18px 12px; font-size:.8rem; color:var(--muted)}
+.g-hol form,.g-mem form{display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px}
+.g-hol input[type=date],.g-hol input[type=text],.g-mem input[type=text]{font:inherit; font-size:.8rem; padding:2px 6px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--ink)}
 .g-hol input[type=text]{width:11em}
 .g-hol input[type=checkbox]{accent-color:var(--ink)}
 .g-hol label{display:inline-flex; align-items:center; gap:6px}
-.g-hol .btn-ghost{font-size:.8rem; padding:2px 10px}
+.g-hol .btn-ghost,.g-mem .btn-ghost{font-size:.8rem; padding:2px 10px}
 .g-chips{display:inline-flex; flex-wrap:wrap; gap:6px}
 .g-chip{display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:999px; padding:1px 4px 1px 10px; color:var(--ink); background:var(--bg); font-variant-numeric:tabular-nums}
 .g-chip button{border:0; background:none; color:var(--muted); font:inherit; cursor:pointer; padding:0 5px; border-radius:50%}
@@ -283,10 +296,11 @@ li.target>.row::after{
 .g-note{font-size:.75rem; color:var(--muted); padding:10px 18px 0; margin:0}
 
 @media (max-width:620px){
-  .gantt{--gl:150px}
   .g-head .g-label{padding-left:10px}
   .g-tools{padding:0 10px 12px}
-  .g-hol{padding:0 10px 12px}
+  .g-hol,.g-mem{padding:0 10px 12px}
+  .gantt{--gl:220px}
+  .g-label select{width:5.2em}
   .today{padding:10px 10px 8px}
   .wrap{padding:20px 12px 80px}
   .stage{padding-right:24px}
@@ -327,7 +341,7 @@ li.target>.row::after{
       <div class="p-head">
         <div class="p-crumb" id="pCrumb"></div>
         <div class="p-titlerow"><h2 id="pTitle"></h2><button class="ic" id="pClose" aria-label="記録を閉じる" title="閉じる">×</button></div>
-        <div class="p-stat"><div class="bar"><div id="pBar"></div></div><span id="pPct"></span><span id="pState"></span></div>
+        <div class="p-stat"><div class="bar"><div id="pBar"></div></div><span id="pPct"></span><span id="pState"></span><label class="p-who" id="pWhoBox" hidden>担当<select id="pWho" aria-label="担当"></select></label></div>
       </div>
       <div class="p-log" id="pLog" aria-live="polite"></div>
       <div class="p-compose">
@@ -341,6 +355,14 @@ li.target>.row::after{
     <div class="g-tools">
       <label>開始日 <input type="date" id="gStart"></label>
       <span class="g-sum" id="gSum"></span>
+    </div>
+    <div class="g-mem">
+      <span>メンバー</span>
+      <span class="g-chips" id="gMemList"></span>
+      <form id="gMemForm">
+        <input type="text" id="gMemName" placeholder="名前" maxlength="20" aria-label="追加するメンバーの名前" required>
+        <button class="btn-ghost">追加</button>
+      </form>
     </div>
     <div class="g-hol">
       <span>休みの期間</span>
@@ -391,6 +413,9 @@ li.target>.row::after{
     const walk = n => { if(!n) return; if(n.type === 'prod') n.type = 'and'; if(Array.isArray(n.children)) n.children.forEach(walk); };
     s.roots.forEach(walk);
     if(!s.logs || typeof s.logs !== 'object') s.logs = {};
+    if(!Array.isArray(s.members)) s.members = [{id:uid(), name:'自分'}];
+    s.members = s.members.filter(m => m && m.id);
+    if(s.gantt) delete s.gantt.serial;
     return s;
   }
   let state = loadLocal() || clone(SAMPLE);
@@ -500,44 +525,85 @@ li.target>.row::after{
   }
 
   /* ---------- storage ---------- */
-  let dbRef = null, saveTimer = null, saving = false, pending = false;
+  // Artifact として開いたときは、チーム共有の1つのドキュメント（team/tree）に保存し、ほかの人の変更も取り込む。
+  // 同時に編集した場合は、後から保存した人の内容が残る。
+  let dbRef = null, saveTimer = null, saving = false, pending = false, readOnly = false;
+  let lastJson = null, remoteJson = null;
+  const SHARED = 'チームで共有中', RO = '閲覧のみ（変更はこの端末だけ）';
   const setStatus = t => { $('#status').textContent = t; };
   function save(){
     try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
     if(!dbRef){ setStatus('この端末に保存'); return; }
+    if(readOnly){ setStatus(RO); return; }
     setStatus('保存中…');
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(flush, 700);
+    saveTimer = setTimeout(() => { saveTimer = null; flush(); }, 700);
   }
   async function flush(){
-    if(!dbRef) return;
+    if(!dbRef || readOnly) return;
     if(saving){ pending = true; return; }
+    const json = JSON.stringify(state);
+    if(json === lastJson){ setStatus(SHARED); return; }
     saving = true;
-    try{ await dbRef.set({json: JSON.stringify(state), updatedAt: Date.now()}); setStatus('保存済み'); }
-    catch(e){ setStatus('クラウドに保存できませんでした（この端末には保存済み）'); }
+    try{ await dbRef.set({json, updatedAt: Date.now()}); lastJson = json; setStatus(SHARED); }
+    catch(e){
+      const big = new Blob([json]).size > 250 * 1024;
+      if(e && e.code === 'invalid_argument' && !big){ readOnly = true; setStatus(RO); }
+      else setStatus(big ? 'データが大きすぎて共有に保存できません（この端末には保存済み）' : '共有に保存できませんでした（この端末には保存済み）');
+    }
     saving = false;
     if(pending){ pending = false; flush(); }
   }
+  // 文字の入力中に画面を作り直すとカーソルが飛ぶので、ほかの人の変更は入力欄を離れてから反映する
+  const editing = () => {
+    const a = document.activeElement;
+    return !!a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && /^(text|number|search|)$/.test(a.type)));
+  };
+  function applyRemote(json){
+    if(json === lastJson) return;
+    if(saveTimer || saving) return;               // 自分の未保存の変更を優先（このあと保存して上書きする）
+    if(editing()){ remoteJson = json; return; }
+    remoteJson = null;
+    let parsed; try{ parsed = JSON.parse(json); }catch(e){ return; }
+    if(!parsed || !Array.isArray(parsed.roots)) return;
+    lastJson = json;
+    state = migrate(parsed);
+    try{ localStorage.setItem(KEY, json); }catch(e){}
+    if(!$('#picker').hidden && pickFor && !find(pickFor)) closePicker();
+    render();
+  }
+  document.addEventListener('focusout', () => setTimeout(() => { if(remoteJson && !editing()) applyRemote(remoteJson); }, 0));
   (async () => {
     try{
       if(!window.claude || !window.claude.use){ setStatus('この端末に保存'); return; }
       const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
-      if(!db || !user){ setStatus('この端末に保存'); return; }
-      const id = await user.id();
-      if(!id){ setStatus('この端末に保存'); return; }
-      dbRef = db.doc('data/users/' + id + '/tree');
-      const snap = await dbRef.get();
+      if(!db){ setStatus('この端末に保存'); return; }
+      const ref = db.doc('team/tree');
+      const snap = await ref.get();
+      if(user && await user.can('data.write') === false) readOnly = true;
+      dbRef = ref;
       if(snap.exists){
         const d = snap.data();
-        if(d && typeof d.json === 'string'){
-          const parsed = JSON.parse(d.json);
-          if(parsed && Array.isArray(parsed.roots)){ state = migrate(parsed); try{ localStorage.setItem(KEY, d.json); }catch(e){} render(); }
+        if(d && typeof d.json === 'string') applyRemote(d.json);
+        setStatus(readOnly ? RO : SHARED);
+      } else if(!readOnly){
+        // 共有データがまだなければ、以前の自分専用データ（あれば）かこの端末のデータで始める
+        const id = user ? await user.id() : null;
+        if(id){
+          const old = await db.doc('data/users/' + id + '/tree').get().catch(() => null);
+          const d = old && old.exists ? old.data() : null;
+          if(d && typeof d.json === 'string'){
+            try{ const p = JSON.parse(d.json); if(p && Array.isArray(p.roots)){ state = migrate(p); render(); } }catch(e){}
+          }
         }
-        setStatus('保存済み');
-      } else {
         await flush();
-      }
-    }catch(e){ setStatus('この端末に保存'); }
+      } else setStatus(RO);
+      ref.onSnapshot(s => {
+        if(!s.exists || s.metadata.hasPendingWrites) return;
+        const d = s.data();
+        if(d && typeof d.json === 'string') applyRemote(d.json);
+      }, () => {});
+    }catch(e){ setStatus(dbRef ? '共有データを読み込めませんでした' : 'この端末に保存'); }
   })();
 
   /* ---------- render ---------- */
@@ -590,6 +656,13 @@ li.target>.row::after{
     row.appendChild(kc);
     const main = el('div','main');
     main.appendChild(titleInput(n, n.type === 'task' ? 'タスク名' : 'サブ目標名'));
+    if(n.type === 'task' && members().length){
+      const sub = el('div','sub');
+      const lab = el('label','param'); lab.append('担当');
+      lab.appendChild(el('select','who',{'data-role':'who', 'aria-label':'担当'}));
+      sub.appendChild(lab);
+      main.appendChild(sub);
+    }
     if(n.type !== 'task'){
       const sub = el('div','sub');
       const pc = paramControl(n); if(pc) sub.appendChild(pc);
@@ -796,7 +869,19 @@ li.target>.row::after{
         if(chain.slice(1).some(n => n.collapsed)) next.append('（折りたたみ内）');
       }
     });
-    renderToday();
+    const P = lastPlan = plan();
+    renderToday(P);
+    // 担当欄（ガントチャートと同じ割り当て）
+    forest.querySelectorAll('select[data-role="who"]').forEach(sel => {
+      const n = nodesMap.get(idOf(sel)); if(!n) return;
+      const own = memberOf(n.who), w = P.whoOf(n.id);
+      sel.classList.toggle('auto', !own);
+      sel.classList.toggle('me', !!(me && w && w.id === me));
+      if(document.activeElement === sel) return;
+      sel.textContent = '';
+      sel.appendChild(el('option',null,{value:'', text:'自動' + (!own && w ? '（' + memberName(w) + '）' : '')}));
+      members().forEach(m => { const o = el('option',null,{value:m.id, text:memberName(m)}); if(own && own.id === m.id) o.selected = true; sel.appendChild(o); });
+    });
     markSel();
     renderPanel(false);
     requestAnimationFrame(drawArrows);
@@ -888,6 +973,15 @@ li.target>.row::after{
     const st = $('#pState');
     st.className = bl ? 'wait' : (v >= 1 ? 'ok' : '');
     st.textContent = bl ? '前提待ち' : (v >= 1 ? '完了' : '');
+    const wb = $('#pWhoBox'), ws = $('#pWho');
+    wb.hidden = n.type !== 'task' || !members().length || !lastPlan;
+    if(!wb.hidden && document.activeElement !== ws){
+      const own = memberOf(n.who), w = lastPlan.whoOf(n.id);
+      ws.classList.toggle('auto', !own);
+      ws.textContent = '';
+      ws.appendChild(el('option',null,{value:'', text:'自動' + (!own && w ? '（' + memberName(w) + '）' : '')}));
+      members().forEach(m => { const o = el('option',null,{value:m.id, text:memberName(m)}); if(own && own.id === m.id) o.selected = true; ws.appendChild(o); });
+    }
     if(full) renderLog();
   }
   function msgEl(m){
@@ -1001,19 +1095,41 @@ li.target>.row::after{
   const todayUTC = () => { const d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
   const iso = t => new Date(t).toISOString().slice(0, 10);
   const md = t => { const d = new Date(t); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); };
-  // 前提と所要日数から、各タスクの開始・終了（開始日からの日数）を決める。1つずつ順番に進める前提
+  const members = () => state.members || [];
+  let lastPlan = null;
+  // 担当を変え、進捗の記録にも残す（addLog が再計算と保存をする）
+  function setWho(n, id){
+    const to = memberOf(id) ? id : undefined;
+    if((n.who || undefined) === to) return;
+    if(to) n.who = to; else delete n.who;
+    addLog(n.id, 'sys', to ? '担当を ' + memberName(memberOf(to)) + ' にしました' : '担当を自動に戻しました');
+  }
+  const memberOf = id => members().find(m => m.id === id) || null;
+  const memberName = m => (m && m.name) || '（名前なし）';
+  // 前提・所要日数・担当者から、各タスクの開始・終了（開始日からの作業日数）と担当を決める。
+  // 同じ人のタスクは1つずつ順番に、別の人どうしは並行に進む。担当なしのタスクは、いちばん早く着手できるメンバーに自動で割り当てる。
+  // メンバーがいなければ1人で1つずつ順番に進める。
   function schedule(){
+    const dur = daysOf;
     indexTree();
-    const S = new Map(), F = new Map();
+    const ms = members(), mi = new Map(ms.map((m, i) => [m.id, i])), free = ms.length ? ms.map(() => 0) : [0];
+    const S = new Map(), F = new Map(), W = new Map();
+    let memo = new Map();
     // 項目が「完了した」とみなせる時点。まだ決まらなければ undefined
     const fin = n => {
-      if(n.type === 'task') return F.get(n.id);
-      const cs = (n.children || []).map(fin);
-      if(!cs.length) return 0;
-      if(cs.some(x => x === undefined)) return undefined;
-      if(n.type === 'or') return Math.min(...cs);
-      if(n.type === 'kofn') return cs.sort((a,b) => a - b)[kOf(n) - 1];
-      return Math.max(...cs);
+      if(memo.has(n.id)) return memo.get(n.id);
+      let v;
+      if(n.type === 'task') v = F.get(n.id);
+      else {
+        const cs = (n.children || []).map(fin);
+        if(!cs.length) v = 0;
+        else if(cs.some(x => x === undefined)) v = undefined;
+        else if(n.type === 'or') v = Math.min(...cs);
+        else if(n.type === 'kofn') v = cs.sort((a,b) => a - b)[kOf(n) - 1];
+        else v = Math.max(...cs);
+      }
+      memo.set(n.id, v);
+      return v;
     };
     const rest = state.roots.flatMap(leavesOf);
     const req = new Map(rest.map(l => {
@@ -1021,18 +1137,32 @@ li.target>.row::after{
       for(let c = l; c; c = parentMap.get(c.id)) (c.deps || []).forEach(d => { if(nodesMap.has(d)) ds.push(nodesMap.get(d)); });
       return [l.id, ds];
     }));
-    let cursor = 0;
+    // そのタスクをいま割り付けるとしたら、いつ・誰が始められるか
+    const slot = l => {
+      const r = Math.max(0, ...req.get(l.id).map(d => fin(d) || 0));
+      if(!ms.length) return {s:Math.max(r, free[0]), w:0};
+      if(mi.has(l.who)){ const w = mi.get(l.who); return {s:Math.max(r, free[w]), w}; }
+      let s = Infinity, w = -1;
+      ms.forEach((m, j) => { const t = Math.max(r, free[j]); if(t < s - 1e-9){ s = t; w = j; } });
+      return {s, w};
+    };
     while(rest.length){
-      let i = rest.findIndex(l => req.get(l.id).every(d => fin(d) !== undefined));
-      if(i < 0) i = 0;
-      const l = rest.splice(i, 1)[0];
-      const s = Math.max(cursor, ...req.get(l.id).map(d => fin(d) || 0));
-      cursor = s + daysOf(l);
-      S.set(l.id, s); F.set(l.id, cursor);
+      // 前提の日程が決まったタスクのうち、いちばん早く始められるもの（同じならツリーの上から）
+      let bi = -1, best = null;
+      rest.forEach((l, i) => {
+        if(!req.get(l.id).every(d => fin(d) !== undefined)) return;
+        const c = slot(l);
+        if(!best || c.s < best.s - 1e-9){ bi = i; best = c; }
+      });
+      if(bi < 0){ bi = 0; best = slot(rest[0]); }
+      const l = rest.splice(bi, 1)[0];
+      S.set(l.id, best.s); F.set(l.id, best.s + dur(l)); W.set(l.id, best.w);
+      free[best.w] = best.s + dur(l);
+      memo = new Map();
     }
-    return {S, F};
+    return {S, F, W};
   }
-  // 日程。vals は評価済みであること
+  // 日程と、遅れると目標の完了日が延びるタスク（クリティカルパス）。vals は評価済みであること
   function plan(){
     if(!state.gantt || parseD(state.gantt.start) === null){
       state.gantt = Object.assign({}, state.gantt, {start: iso(todayUTC())});
@@ -1063,21 +1193,35 @@ li.target>.row::after{
     const nowCol = Math.round((todayUTC() - start) / DAY);
     let now = nowCol;
     if(nowCol > 0){ now = 0; for(let i = 0; i < nowCol; i++) if(!isOff(i)) now++; }
-    const {S, F} = schedule();
-    return {start, S, F, now, nowCol, isOff, cal, xs, xe, hasOff: skipWe || offs.length > 0, offToday: isOff(nowCol)};
+    const {S, F, W} = schedule();
+    const whoOf = id => members()[W.get(id)] || null;
+    return {start, S, F, W, whoOf, now, nowCol, isOff, cal, xs, xe, hasOff: skipWe || offs.length > 0, offToday: isOff(nowCol)};
   }
-  function renderToday(){
+  // 「今日やること」を誰の分で見るか（この端末だけの設定）
+  const ME_KEY = 'goal-tree-me';
+  let me = ''; try{ me = localStorage.getItem(ME_KEY) || ''; }catch(e){}
+  function renderToday(P = plan()){
     const box = $('#today'); box.textContent = '';
-    const P = plan();
+    if(me && !memberOf(me)) me = '';
     const live = l => { for(let c = parentMap.get(l.id); c; c = parentMap.get(c.id)) if(vals.get(c.id) >= 1) return false; return true; };
-    const items = state.roots.flatMap(leavesOf)
+    const all = state.roots.flatMap(leavesOf)
       .filter(l => vals.get(l.id) < 1 && !blockers(l).length && live(l))
       .sort((a,b) => P.S.get(a.id) - P.S.get(b.id) || P.F.get(a.id) - P.F.get(b.id));
-    box.hidden = !items.length;
-    if(!items.length) return;
+    const items = me ? all.filter(l => { const w = P.whoOf(l.id); return w && w.id === me; }) : all;
+    box.hidden = !all.length;
+    if(!all.length) return;
     const h = el('h2',null,{text:'今日やること'});
     h.appendChild(el('small',null,{text:'いま着手できるタスク（予定の早い順）'}));
+    if(members().length > 1 || me){
+      const lab = el('label'); lab.append('表示');
+      const sel = el('select',null,{id:'todayWho', 'aria-label':'誰のタスクを表示するか'});
+      sel.appendChild(el('option',null,{value:'', text:'全員'}));
+      members().forEach(m => { const o = el('option',null,{value:m.id, text:memberName(m)}); if(m.id === me) o.selected = true; sel.appendChild(o); });
+      lab.appendChild(sel); h.appendChild(lab);
+    }
     box.appendChild(h);
+    if(!items.length){ box.appendChild(el('p','more',{text:'いま着手できる担当タスクはありません。'})); return; }
+    const showWho = !me && members().length > 1;
     const ol = el('ol');
     items.slice(0, 6).forEach(l => {
       const li = el('li'), s = P.S.get(l.id), f = P.F.get(l.id);
@@ -1085,6 +1229,7 @@ li.target>.row::after{
       const chain = [];
       for(let c = parentMap.get(l.id); c; c = parentMap.get(c.id)) chain.unshift(c.title || '名前なし');
       li.appendChild(el('span','crumb',{text:chain.join(' / ')}));
+      if(showWho){ const w = P.whoOf(l.id); if(w) li.appendChild(el('span','who',{text:memberName(w) + (memberOf(l.who) ? '' : '（自動）')})); }
       if(f <= P.now) li.appendChild(el('span','tag late',{text:'予定超過'}));
       else if(s < P.now || (s <= P.now && !P.offToday)) li.appendChild(el('span','tag now',{text:'今日の予定'}));
       li.appendChild(el('span','when',{text:md(P.start + P.cal(Math.floor(s)) * DAY) + '〜' + md(P.start + P.cal(Math.ceil(f) - 1) * DAY) + '　' + pct(vals.get(l.id)) + '%'}));
@@ -1104,12 +1249,26 @@ li.target>.row::after{
       row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
     }
   }
+  $('#today').addEventListener('change', e => {
+    if(e.target.id !== 'todayWho') return;
+    me = e.target.value;
+    try{ if(me) localStorage.setItem(ME_KEY, me); else localStorage.removeItem(ME_KEY); }catch(err){}
+    update();
+    const s = $('#todayWho'); if(s) s.focus();
+  });
   $('#today').addEventListener('click', e => { const b = e.target.closest('[data-target]'); if(b) gotoNode(b.getAttribute('data-target')); });
   function renderGantt(focusId){
     if(!ganttOn) return;
     vals.clear(); state.roots.forEach(evaluate); indexTree();
-    const P = plan(), {start, S, F, now, nowCol, isOff, cal, xs, xe} = P;
+    const P = plan(), {start, S, F, now, nowCol, isOff, cal, xs, xe} = P, ms = members();
     $('#gStart').value = state.gantt.start; $('#gSkipWe').checked = !!state.gantt.skipWe;
+    const mchips = $('#gMemList'); mchips.textContent = '';
+    ms.forEach(m => {
+      const c = el('span','g-chip',{text:memberName(m)});
+      c.appendChild(el('button',null,{type:'button', 'data-mem':m.id, 'aria-label':memberName(m) + 'をメンバーから外す', title:'外す', text:'×'}));
+      mchips.appendChild(c);
+    });
+    if(!ms.length) mchips.appendChild(el('span',null,{text:'なし（1人で順番に進める扱い）'}));
     const chips = $('#gOffList'); chips.textContent = '';
     (state.gantt.offs || []).forEach((o, i) => {
       const a = parseD(o.from), b = parseD(o.to); if(a === null || b === null) return;
@@ -1119,7 +1278,8 @@ li.target>.row::after{
     });
     $('#gNote').textContent = '所要日数と前提（ツリー側の ⇠）から日程を自動で引きます。バーの塗りは現在の進捗、赤枠は予定を過ぎた未完了の項目です。'
       + (P.hasOff ? '斜線の日は休みで、所要日数に数えず飛ばして日程を引きます。' : '')
-      + 'タスクは1つずつ順番に進める前提です。';
+      + (ms.length > 1 ? '同じ人のタスクは1つずつ順番に、別の人どうしは並行に進めます。担当が「自動」のタスクは、いちばん早く手が空く人に割り当てます（バーの右に担当を表示）。'
+        : 'タスクは1つずつ順番に進める前提です。メンバーを追加すると、別の人どうしは並行に進める日程になります。');
     const rows = [];
     const walk = (n, depth) => {
       const ls = leavesOf(n);
@@ -1139,7 +1299,7 @@ li.target>.row::after{
     if(over) sum.classList.add('late');
 
     const head = el('div','g-row g-head');
-    const hl = el('div','g-label'); hl.appendChild(el('span',null,{text:'項目'})); hl.appendChild(el('span',null,{text:'所要日数'}));
+    const hl = el('div','g-label'); hl.appendChild(el('span',null,{text:'項目'})); hl.appendChild(el('span',null,{text:ms.length ? '担当・所要日数' : '所要日数'}));
     head.appendChild(hl);
     const ht = el('div','g-track'); ht.style.width = cols * GW + 'px';
     const bg = el('div','g-bg'), offLayer = el('div','g-off');
@@ -1168,6 +1328,13 @@ li.target>.row::after{
       const lab = el('div','g-label' + (r.depth ? '' : ' top') + (v >= 1 ? ' full' : ''));
       lab.style.paddingLeft = (r.depth * 14 + 18) + 'px';
       lab.appendChild(el('span','t',{text:n.title || '（名前なし）', title:n.title || ''}));
+      if(task && ms.length){
+        const own = memberOf(n.who), auto = P.whoOf(n.id);
+        const sel = el('select', own ? null : 'auto', {'data-gwho':n.id, 'aria-label':'担当'});
+        sel.appendChild(el('option',null,{value:'', text:'自動' + (!own && auto ? '（' + memberName(auto) + '）' : '')}));
+        ms.forEach(m => { const o = el('option',null,{value:m.id, text:memberName(m)}); if(own && m.id === own.id) o.selected = true; sel.appendChild(o); });
+        lab.appendChild(sel);
+      }
       if(task){
         const inp = el('input',null,{type:'number', min:'0.5', max:'365', step:'0.5', inputmode:'decimal', 'data-gdays':n.id, 'aria-label':'所要日数'});
         inp.value = daysOf(n);
@@ -1182,6 +1349,13 @@ li.target>.row::after{
         bar.title = (n.title || '（名前なし）') + '　' + md(start + cal(Math.floor(r.sp[0])) * DAY) + '〜' + md(start + cal(Math.ceil(r.sp[1]) - 1) * DAY) + '（' + fmtW(r.sp[1] - r.sp[0]) + '日）　進捗 ' + pct(v) + '%';
         const fill = el('div'); fill.style.width = pct(v) + '%'; bar.appendChild(fill);
         tr.appendChild(bar);
+        const who = task && ms.length > 1 ? P.whoOf(n.id) : null;
+        if(who){
+          bar.title += '　担当 ' + memberName(who) + (memberOf(n.who) ? '' : '（自動）');
+          const t = el('span','g-who',{text:memberName(who)});
+          t.style.left = (xe(r.sp[1]) * GW + 4) + 'px';
+          tr.appendChild(t);
+        }
       }
       row.appendChild(tr); body.appendChild(row);
     });
@@ -1214,7 +1388,28 @@ li.target>.row::after{
     $('#viewBtn').textContent = ganttOn ? 'ツリーに戻る' : 'ガントチャート';
     if(ganttOn) renderGantt(); else update();
   });
+  $('#pWho').addEventListener('change', e => {
+    const f = selId ? find(selId) : null; if(!f) return;
+    const t = e.target; t.blur(); setWho(f.node, t.value); if(ganttOn) renderGantt(); t.focus();
+  });
   $('#gStart').addEventListener('change', e => { if(parseD(e.target.value) === null) return; state.gantt.start = e.target.value; save(); renderGantt(); });
+  $('#gMemForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const name = $('#gMemName').value.trim(); if(!name) return;
+    state.members = [...members(), {id:uid(), name}];
+    e.target.reset();
+    save(); render();
+  });
+  $('#gMemList').addEventListener('click', e => {
+    const b = e.target.closest('[data-mem]'); if(!b) return;
+    const id = b.getAttribute('data-mem'), m = memberOf(id); if(!m) return;
+    undoSnap = clone(state);
+    state.members = members().filter(x => x.id !== id);
+    indexTree();
+    nodesMap.forEach(n => { if(n.who === id) delete n.who; });
+    save(); render();
+    toast('「' + memberName(m) + '」をメンバーから外しました（担当していたタスクは自動に戻ります）');
+  });
   $('#gSkipWe').addEventListener('change', e => { state.gantt.skipWe = e.target.checked; save(); renderGantt(); });
   $('#gOffForm').addEventListener('submit', e => {
     e.preventDefault();
@@ -1235,6 +1430,13 @@ li.target>.row::after{
     save(); renderGantt();
   });
   $('#gGrid').addEventListener('change', e => {
+    const wid = e.target.getAttribute('data-gwho');
+    if(wid){
+      const f = find(wid); if(!f) return;
+      setWho(f.node, e.target.value); render();
+      const s = $('#gGrid select[data-gwho="' + wid + '"]'); if(s) s.focus();
+      return;
+    }
     const id = e.target.getAttribute('data-gdays'); if(!id) return;
     const f = find(id); if(!f) return;
     const d = Number(e.target.value);
@@ -1285,7 +1487,7 @@ li.target>.row::after{
     else if(act === 'deps'){ openPicker(id); }
     else if(act === 'chat'){ select(id); }
     else if(act === 'add'){
-      if(n.type === 'task'){ n.type = 'and'; delete n.progress; n.children = []; }
+      if(n.type === 'task'){ n.type = 'and'; delete n.progress; delete n.who; n.children = []; }
       n.collapsed = false;
       const c = {id:uid(), title:'', type:'task', progress:0};
       n.children.push(c);
@@ -1317,6 +1519,10 @@ li.target>.row::after{
   });
   forest.addEventListener('change', e => {
     const t = e.target, role = t.getAttribute('data-role');
+    if(role === 'who'){
+      const fw = find(idOf(t)); if(!fw) return;
+      t.blur(); setWho(fw.node, t.value); t.focus(); return;
+    }
     if(role === 'kind'){
       const fk = find(idOf(t)); if(!fk) return;
       fk.node.type = t.value;
