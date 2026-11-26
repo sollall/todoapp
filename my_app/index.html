@@ -223,7 +223,7 @@ li.target>.row::after{
 .today .crumb{font-size:.75rem; color:var(--muted); flex:1 1 120px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .today .when{font-size:.75rem; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap}
 .tag{font-size:.7rem; font-weight:700; border:1.5px solid currentColor; border-radius:4px; padding:0 5px; white-space:nowrap}
-.tag.late,.tag.crit{color:var(--dep)} .tag.now{color:var(--next)}
+.tag.late{color:var(--dep)} .tag.now{color:var(--next)}
 .today .more{font-size:.75rem; color:var(--muted); margin:6px 0 0}
 
 /* gantt */
@@ -260,10 +260,7 @@ li.target>.row::after{
 .g-bg .now{background:color-mix(in srgb,var(--next) 13%,transparent); box-shadow:inset 2px 0 0 var(--next)}
 .g-bar{position:absolute; top:8px; height:14px; border-radius:3px; background:color-mix(in srgb,var(--ink) 22%,var(--surface)); overflow:hidden}
 .g-bar>div{height:100%; background:var(--ink)}
-.g-bar.crit{background:color-mix(in srgb,var(--dep) 26%,var(--surface))}
-.g-bar.crit>div{background:var(--dep)}
 .g-bar.full>div{background:var(--done)}
-.g-slack{position:absolute; top:14px; height:0; border-top:2px dotted var(--muted)}
 .g-bar.late{outline:2px solid var(--dep); outline-offset:1px}
 .g-bar.grp{top:12px; height:6px; border-radius:3px; background:color-mix(in srgb,currentColor 28%,var(--surface)); color:var(--and)}
 .g-bar.grp>div{background:currentColor}
@@ -343,7 +340,6 @@ li.target>.row::after{
   <section class="gantt" id="ganttView" hidden aria-label="ガントチャート">
     <div class="g-tools">
       <label>開始日 <input type="date" id="gStart"></label>
-      <label><input type="checkbox" id="gSerial"> 1つずつ順番に進める</label>
       <span class="g-sum" id="gSum"></span>
     </div>
     <div class="g-hol">
@@ -1005,9 +1001,8 @@ li.target>.row::after{
   const todayUTC = () => { const d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
   const iso = t => new Date(t).toISOString().slice(0, 10);
   const md = t => { const d = new Date(t); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); };
-  // 前提と所要日数から、各タスクの開始・終了（開始日からの日数）を決める
-  function schedule(serial, xid, extra){
-    const dur = l => daysOf(l) + (l.id === xid ? extra : 0);
+  // 前提と所要日数から、各タスクの開始・終了（開始日からの日数）を決める。1つずつ順番に進める前提
+  function schedule(){
     indexTree();
     const S = new Map(), F = new Map();
     // 項目が「完了した」とみなせる時点。まだ決まらなければ undefined
@@ -1031,19 +1026,19 @@ li.target>.row::after{
       let i = rest.findIndex(l => req.get(l.id).every(d => fin(d) !== undefined));
       if(i < 0) i = 0;
       const l = rest.splice(i, 1)[0];
-      const s = Math.max(serial ? cursor : 0, ...req.get(l.id).map(d => fin(d) || 0));
-      S.set(l.id, s); F.set(l.id, s + dur(l));
-      if(serial) cursor = s + dur(l);
+      const s = Math.max(cursor, ...req.get(l.id).map(d => fin(d) || 0));
+      cursor = s + daysOf(l);
+      S.set(l.id, s); F.set(l.id, cursor);
     }
     return {S, F};
   }
-  // 日程と、遅れると目標の完了日が延びるタスク（クリティカルパス）。vals は評価済みであること
+  // 日程。vals は評価済みであること
   function plan(){
     if(!state.gantt || parseD(state.gantt.start) === null){
-      state.gantt = Object.assign({}, state.gantt, {start: iso(todayUTC()), serial: !state.gantt || state.gantt.serial !== false});
+      state.gantt = Object.assign({}, state.gantt, {start: iso(todayUTC())});
       save();
     }
-    const serial = state.gantt.serial !== false, start = parseD(state.gantt.start);
+    const start = parseD(state.gantt.start);
     // 休み（期間指定・土日）を飛ばして、作業日ベースの日程をカレンダー上の日付に置き直す
     const skipWe = !!state.gantt.skipWe;
     const offs = (state.gantt.offs || []).map(o => [parseD(o.from), parseD(o.to)]).filter(o => o[0] !== null && o[1] !== null);
@@ -1068,18 +1063,8 @@ li.target>.row::after{
     const nowCol = Math.round((todayUTC() - start) / DAY);
     let now = nowCol;
     if(nowCol > 0){ now = 0; for(let i = 0; i < nowCol; i++) if(!isOff(i)) now++; }
-    const {S, F} = schedule(serial);
-    const rootOf = id => { let c = nodesMap.get(id); while(parentMap.has(c.id)) c = parentMap.get(c.id); return c; };
-    // そのタスクが属する目標の完了時点（タスクを x 日延ばした場合）
-    const goalEnd = (id, x) => { const f = x ? schedule(serial, id, x).F : F; return Math.max(...leavesOf(rootOf(id)).map(l => f.get(l.id))); };
-    const open = state.roots.flatMap(leavesOf).filter(l => vals.get(l.id) < 1);
-    const crit = new Set((serial ? open : open.filter(l => goalEnd(l.id, .01) > goalEnd(l.id, 0) + 1e-9)).map(l => l.id));
-    const slack = id => {
-      const base = goalEnd(id, 0); let lo = 0, hi = base + 1;
-      for(let i = 0; i < 12; i++){ const m = (lo + hi) / 2; if(goalEnd(id, m) > base + 1e-9) hi = m; else lo = m; }
-      return Math.round(lo * 2) / 2;
-    };
-    return {serial, start, S, F, crit, slack, allCrit: crit.size === open.length, now, nowCol, isOff, cal, xs, xe, hasOff: skipWe || offs.length > 0, offToday: isOff(nowCol)};
+    const {S, F} = schedule();
+    return {start, S, F, now, nowCol, isOff, cal, xs, xe, hasOff: skipWe || offs.length > 0, offToday: isOff(nowCol)};
   }
   function renderToday(){
     const box = $('#today'); box.textContent = '';
@@ -1087,7 +1072,7 @@ li.target>.row::after{
     const live = l => { for(let c = parentMap.get(l.id); c; c = parentMap.get(c.id)) if(vals.get(c.id) >= 1) return false; return true; };
     const items = state.roots.flatMap(leavesOf)
       .filter(l => vals.get(l.id) < 1 && !blockers(l).length && live(l))
-      .sort((a,b) => P.S.get(a.id) - P.S.get(b.id) || P.crit.has(b.id) - P.crit.has(a.id) || P.F.get(a.id) - P.F.get(b.id));
+      .sort((a,b) => P.S.get(a.id) - P.S.get(b.id) || P.F.get(a.id) - P.F.get(b.id));
     box.hidden = !items.length;
     if(!items.length) return;
     const h = el('h2',null,{text:'今日やること'});
@@ -1102,7 +1087,6 @@ li.target>.row::after{
       li.appendChild(el('span','crumb',{text:chain.join(' / ')}));
       if(f <= P.now) li.appendChild(el('span','tag late',{text:'予定超過'}));
       else if(s < P.now || (s <= P.now && !P.offToday)) li.appendChild(el('span','tag now',{text:'今日の予定'}));
-      if(!P.allCrit && P.crit.has(l.id)) li.appendChild(el('span','tag crit',{text:'遅れると完了日に響く'}));
       li.appendChild(el('span','when',{text:md(P.start + P.cal(Math.floor(s)) * DAY) + '〜' + md(P.start + P.cal(Math.ceil(f) - 1) * DAY) + '　' + pct(vals.get(l.id)) + '%'}));
       ol.appendChild(li);
     });
@@ -1124,9 +1108,8 @@ li.target>.row::after{
   function renderGantt(focusId){
     if(!ganttOn) return;
     vals.clear(); state.roots.forEach(evaluate); indexTree();
-    const P = plan(), {serial, start, S, F, now, nowCol, isOff, cal, xs, xe} = P;
-    const showCrit = !P.allCrit;
-    $('#gStart').value = state.gantt.start; $('#gSerial').checked = serial; $('#gSkipWe').checked = !!state.gantt.skipWe;
+    const P = plan(), {start, S, F, now, nowCol, isOff, cal, xs, xe} = P;
+    $('#gStart').value = state.gantt.start; $('#gSkipWe').checked = !!state.gantt.skipWe;
     const chips = $('#gOffList'); chips.textContent = '';
     (state.gantt.offs || []).forEach((o, i) => {
       const a = parseD(o.from), b = parseD(o.to); if(a === null || b === null) return;
@@ -1136,8 +1119,7 @@ li.target>.row::after{
     });
     $('#gNote').textContent = '所要日数と前提（ツリー側の ⇠）から日程を自動で引きます。バーの塗りは現在の進捗、赤枠は予定を過ぎた未完了の項目です。'
       + (P.hasOff ? '斜線の日は休みで、所要日数に数えず飛ばして日程を引きます。' : '')
-      + (serial ? '順番に進める設定では、どのタスクの遅れも完了日に響きます（「1つずつ順番に進める」を外すとクリティカルパスを表示します）。'
-        : showCrit ? '赤いバーはクリティカルパス（遅れると目標の完了日が延びるタスク）、点線はその日数だけ遅れても完了日に響かない余裕です。' : '');
+      + 'タスクは1つずつ順番に進める前提です。';
     const rows = [];
     const walk = (n, depth) => {
       const ls = leavesOf(n);
@@ -1153,7 +1135,7 @@ li.target>.row::after{
     if(nowCol >= 0 && nowCol < cols + 30) cols = Math.max(cols, nowCol + 2);
     const allDone = state.roots.every(r => !leavesOf(r).length || vals.get(r.id) >= 1);
     const over = !allDone && now >= end;
-    sum.textContent = (allDone ? '達成済み　' : '') + '完了予定 ' + md(start + cal(end - 1) * DAY) + '（' + (P.hasOff ? '休みを除き ' : '全 ') + end + ' 日）' + (over ? '　予定を過ぎています' : '') + (showCrit && P.crit.size ? '　クリティカル ' + P.crit.size + ' 件' : '');
+    sum.textContent = (allDone ? '達成済み　' : '') + '完了予定 ' + md(start + cal(end - 1) * DAY) + '（' + (P.hasOff ? '休みを除き ' : '全 ') + end + ' 日）' + (over ? '　予定を過ぎています' : '');
     if(over) sum.classList.add('late');
 
     const head = el('div','g-row g-head');
@@ -1195,12 +1177,9 @@ li.target>.row::after{
       const tr = el('div','g-track'); tr.style.width = cols * GW + 'px';
       if(r.sp){
         const late = v < 1 && r.sp[1] <= now;
-        const isCrit = task && showCrit && P.crit.has(n.id);
-        const sl = task && showCrit && v < 1 && !isCrit ? P.slack(n.id) : 0;
-        const bar = el('div','g-bar' + (task ? '' : ' grp ' + n.type) + (isCrit ? ' crit' : '') + (v >= 1 ? ' full' : '') + (late ? ' late' : ''));
+        const bar = el('div','g-bar' + (task ? '' : ' grp ' + n.type) + (v >= 1 ? ' full' : '') + (late ? ' late' : ''));
         bar.style.left = xs(r.sp[0]) * GW + 'px'; bar.style.width = Math.max(4, (xe(r.sp[1]) - xs(r.sp[0])) * GW - 2) + 'px';
-        bar.title = (n.title || '（名前なし）') + '　' + md(start + cal(Math.floor(r.sp[0])) * DAY) + '〜' + md(start + cal(Math.ceil(r.sp[1]) - 1) * DAY) + '（' + fmtW(r.sp[1] - r.sp[0]) + '日）　進捗 ' + pct(v) + '%' + (isCrit ? '　クリティカル' : sl ? '　余裕 ' + fmtW(sl) + '日' : '');
-        if(sl){ const t = el('div','g-slack'); t.style.left = xe(r.sp[1]) * GW + 'px'; t.style.width = (xe(r.sp[1] + sl) - xe(r.sp[1])) * GW + 'px'; t.title = '余裕 ' + fmtW(sl) + '日'; tr.appendChild(t); }
+        bar.title = (n.title || '（名前なし）') + '　' + md(start + cal(Math.floor(r.sp[0])) * DAY) + '〜' + md(start + cal(Math.ceil(r.sp[1]) - 1) * DAY) + '（' + fmtW(r.sp[1] - r.sp[0]) + '日）　進捗 ' + pct(v) + '%';
         const fill = el('div'); fill.style.width = pct(v) + '%'; bar.appendChild(fill);
         tr.appendChild(bar);
       }
@@ -1236,7 +1215,6 @@ li.target>.row::after{
     if(ganttOn) renderGantt(); else update();
   });
   $('#gStart').addEventListener('change', e => { if(parseD(e.target.value) === null) return; state.gantt.start = e.target.value; save(); renderGantt(); });
-  $('#gSerial').addEventListener('change', e => { state.gantt.serial = e.target.checked; save(); renderGantt(); });
   $('#gSkipWe').addEventListener('change', e => { state.gantt.skipWe = e.target.checked; save(); renderGantt(); });
   $('#gOffForm').addEventListener('submit', e => {
     e.preventDefault();
