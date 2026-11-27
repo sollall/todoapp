@@ -27,3 +27,20 @@ npm run dev
 
 `main` に push すると `.github/workflows/deploy.yml` がビルドして GitHub Pages に公開します（Actions タブから手動実行も可）。
 初回のみ、リポジトリの Settings → Pages → Build and deployment の Source を「GitHub Actions」にしてください。
+
+## アプリとしてインストール（PWA）
+
+公開ページはインストールできる Web アプリ（PWA）になっています。Chrome / Edge のアドレスバーのインストールボタン、スマホでは「ホーム画面に追加」から入れられ、一度開けばオフラインでも起動します。
+
+- `my_app/public/manifest.webmanifest` … アプリ名・アイコン・色
+- `my_app/public/sw.js` … Service Worker。アプリ本体はネット優先（更新はすぐ反映）、つながらないときは保存済みのものを使う。キャッシュの中身を大きく変えたときは `VERSION` を上げる
+- `my_app/public/icons/` … アイコン（`icon.svg` / `maskable.svg` が元データ）
+
+## Microsoft Store への公開手順
+
+1. `main` に push して GitHub Pages に公開されたことを確認する
+2. https://www.pwabuilder.com に公開 URL を入れて診断し、「Package For Stores」→ Windows でパッケージを作る
+3. Partner Center（https://partner.microsoft.com/dashboard）で開発者登録（個人は無料）し、アプリ名を予約する
+4. 予約で表示される Package ID・Publisher などを PWABuilder に入れてパッケージを作り直し、`.msixbundle` を Partner Center にアップロードして審査に出す
+
+ストア版の中身は公開ページそのものなので、以後は push するだけで内容が更新されます（アイコンや名前を変えたときだけパッケージを作り直す）。
