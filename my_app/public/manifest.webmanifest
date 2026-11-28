@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "目標ツリー",
-  "short_name": "目標ツリー",
+  "name": "Arbo",
+  "short_name": "Arbo",
   "description": "目標をサブ目標・タスクのツリーに分解し、達成度の集計・次の一手・ガントチャートで進めるアプリ",
   "lang": "ja",
   "dir": "ltr",
