@@ -1,4 +1,4 @@
-// 目標ツリー Service Worker
+// Arbo Service Worker
 // - アプリ本体（HTML・manifest・アイコン）: ネット優先。つながらないときは保存済みのものを使う
 //   → push した更新はオンラインなら次回起動時にすぐ反映される
 // - Google Fonts: 保存済みを優先して返し、裏で最新に更新する
