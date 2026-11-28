@@ -36,25 +36,51 @@ Claude の Artifact として公開した場合は、共有された全員が同
 - 共有画面のメンバー一覧に、各メンバーが「有料版・編集できます」「無料版・閲覧のみ」「まだ開いていません」（まだ一度もそのツリーを開いていない人）のどれかを表示します
 - `firebase-config.js` に `upgradeUrl`（購入ページの URL）を書くと、無料版の人の共有画面に「有料版について」ボタンが出ます
 
-手動で有料版にするには、Firebase コンソールの Firestore で `plans` コレクションにそのユーザーの UID（Authentication の画面で確認）を ID にしたドキュメントを作り、`until` フィールドをタイムスタンプ型で期限の日時にします。
+有料版の付け外しは Actions の「Firebase 管理」（「有料版にする」「有料版をやめる」）からできます。手動でやるときは、Firebase コンソールの Firestore で `plans` コレクションにそのユーザーの UID（Authentication の画面で確認）を ID にしたドキュメントを作り、`until` フィールドをタイムスタンプ型で期限の日時にします。
 決済と連動させる場合は、Stripe などの Webhook を受けた Cloud Functions（Blaze プランが必要）から Admin SDK で `plans/{uid}.until` を更新します。
 
 
 データは `trees/{ツリーID}` に1ツリー1ドキュメント（`name`・`owner`・`ownerEmail`・`members`・`json`）で保存され、`members` に入っているメールアドレスの人だけが読み書きできます（`firestore.rules`）。`users/{uid}` には自分用ツリーの ID と最後に開いたツリーを覚えています。
 
-初回の設定手順:
+### GitHub Pages で使う（設定手順）
 
-1. https://console.firebase.google.com でプロジェクトを作る
-2. 「Authentication」→「Sign-in method」で **Google** を有効にする。「設定」→「承認済みドメイン」に公開先（例: `sollall.github.io`）を追加する（`localhost` は最初から入っています）
-3. 「Firestore Database」を作成する（本番モードで可）
-4. 「プロジェクトの設定」→「マイアプリ」でウェブアプリを追加し、表示された `firebaseConfig` の値を `my_app/public/firebase-config.js` に貼り付ける（この値は公開しても問題ありません）
-5. セキュリティルール（メンバーだけが読み書きできる）を反映する。コンソールの Firestore →「ルール」に `firestore.rules` の中身を貼るか、Firebase CLI で次を実行する
+**Firebase コンソール（https://console.firebase.google.com）で**
+
+1. プロジェクトを作る
+2. 「Authentication」→「始める」→「Sign-in method」で **Google** を有効にする
+3. 「Firestore Database」→「データベースを作成」（本番環境モードで可。ルールはあとで GitHub Actions から入れます）
+4. 「プロジェクトの設定」→「全般」→「マイアプリ」でウェブアプリ（`</>`）を追加し、表示される `const firebaseConfig = { ... };` をコピーしておく
+5. 「プロジェクトの設定」→「サービス アカウント」→「新しい秘密鍵の生成」で鍵（JSON ファイル）をダウンロードする（**この鍵は秘密です。リポジトリにコミットしたり人に渡したりしないでください**）
+
+**GitHub のリポジトリの Settings → Secrets and variables → Actions で**
+
+6. 「Variables」タブに `FIREBASE_CONFIG` を作り、4 でコピーした `const firebaseConfig = { ... };` をそのまま貼る（`{ ... }` の部分だけでも可。`upgradeUrl: "https://..."` を足すと購入ページへのボタンが出ます）
+7. 「Secrets」タブに `FIREBASE_SERVICE_ACCOUNT` を作り、5 の JSON ファイルの中身を全部貼る
+
+**GitHub の Actions タブで**
+
+8. 「Firebase 管理」→「Run workflow」で「ルールを反映（firestore.rules）」を実行する（以後 `main` の `firestore.rules` を変えると自動で反映されます）
+9. 同じく「GitHub Pages のドメインでログインを許可」を実行する（`<owner>.github.io` を承認済みドメインに追加します。コンソールの Authentication →「設定」→「承認済みドメイン」から手で足しても同じです）
+10. 「Deploy to GitHub Pages」を実行する（`main` に push しても動きます）。公開されるページの `firebase-config.js` に 6 の設定が入ります
+
+ローカル（`npm run dev`）で試すときは、`my_app/public/firebase-config.js` に同じ設定を書きます（`localhost` は最初から承認済みです）。
+
+### 招待と有料版の動作を確かめる
+
+1. 公開ページを開き、Google アカウント A でログイン →「共有」→「新しいツリーを作る」
+2. アカウント B（別のブラウザやシークレットウィンドウ）でも一度ログインしておく
+3. A で B のメールアドレスを招待すると、A も B も無料版なので閲覧のみになる。B の「共有」→「開くツリー」から A のツリーを開ける
+4. Actions →「Firebase 管理」→「有料版にする」で A（と B）のメールアドレスと日数を入れて実行すると、再読み込みなしで編集できるようになり、メンバー一覧の表示も「有料版・編集できます」に変わる（「有料版をやめる」で元に戻る）
+
+ログインや読み込みに失敗したときは、画面右上の表示に原因（承認済みドメイン・Google ログインが無効・ルール未反映など）が出ます。詳しくはブラウザの開発者ツールのコンソールを見てください。
+
+### 管理用スクリプト（scripts/admin.mjs）
+
+Actions の「Firebase 管理」から使うスクリプトです。手元で使うときは `GOOGLE_APPLICATION_CREDENTIALS` にサービスアカウントの鍵ファイルのパスを入れて実行します。
 
 ```bash
-npm install -g firebase-tools
-firebase login
-firebase use --add
-firebase deploy --only firestore:rules
+cd scripts && npm ci
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json node admin.mjs set-plan someone@example.com 30
 ```
 
 ### 手元で試す（エミュレーター）

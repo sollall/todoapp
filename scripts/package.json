@@ -1,0 +1,9 @@
+{
+  "name": "arbo-admin",
+  "private": true,
+  "type": "module",
+  "description": "Arbo の Firebase 管理用スクリプト（GitHub Actions の「Firebase 管理」から使う）",
+  "dependencies": {
+    "firebase-admin": "^13.4.0"
+  }
+}

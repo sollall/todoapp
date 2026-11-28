@@ -733,7 +733,12 @@ li.target>.row::after{
       try{ await fa.signInWithPopup(auth, provider); }
       catch(e){
         if(e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) fa.signInWithRedirect(auth, provider).catch(() => {});
-        else if(e && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') setStatus('ログインできませんでした');
+        else if(e && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request'){
+          console.warn('Arbo: ログインに失敗', e);
+          setStatus(e.code === 'auth/unauthorized-domain' ? 'ログインできません: ' + location.hostname + ' が Firebase の承認済みドメインに入っていません'
+            : e.code === 'auth/operation-not-allowed' || e.code === 'auth/configuration-not-found' ? 'ログインできません: Firebase で Google ログインが有効になっていません'
+            : 'ログインできませんでした（' + (e.code || e.message) + '）');
+        }
       }
     });
 
@@ -874,7 +879,12 @@ li.target>.row::after{
         }
         clearHash();
         if(!ok) setStatus('クラウドのデータを読み込めませんでした（この端末には保存済み）');
-      }catch(e){ if(user === u) setStatus('クラウドのデータを読み込めませんでした（この端末には保存済み）'); }
+      }catch(e){
+        console.warn('Arbo: クラウドの読み込みに失敗', e);
+        if(user === u) setStatus(e && e.code === 'permission-denied'
+          ? 'クラウドのデータを読み込めませんでした: Firestore のルールが反映されていない可能性があります'
+          : 'クラウドのデータを読み込めませんでした（' + ((e && (e.code || e.message)) || '') + '・この端末には保存済み）');
+      }
     });
     window.addEventListener('hashchange', () => { const id = hashTree(); if(id && user){ clearHash(); if(id !== treeId) openTree(id).then(ok => { if(!ok) goPersonal('このツリーを開く権限がありません'); }); } });
 
