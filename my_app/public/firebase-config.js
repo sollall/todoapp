@@ -8,4 +8,6 @@ window.FIREBASE_CONFIG = {
   storageBucket: '',
   messagingSenderId: '',
   appId: '',
+  // 有料版の購入ページの URL（あれば共有画面に「有料版について」ボタンを出す）
+  upgradeUrl: '',
 };
