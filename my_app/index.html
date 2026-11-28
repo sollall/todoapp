@@ -11,6 +11,7 @@
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script src="firebase-config.js"></script>
 <meta name="apple-mobile-web-app-title" content="Arbo">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -331,6 +332,7 @@ li.target>.row::after{
     </div>
     <div class="top-actions">
       <span class="status" id="status" aria-live="polite"></span>
+      <button class="btn-ghost" id="authBtn" hidden>ログイン</button>
       <button class="btn-ghost" id="viewBtn">ガントチャート</button>
       <button class="btn" id="addRoot">目標を追加</button>
     </div>
@@ -534,11 +536,14 @@ li.target>.row::after{
   }
 
   /* ---------- storage ---------- */
+  // Firebase の設定（firebase-config.js）があり、ログインしているときは Firestore の users/{uid}/trees/main に保存し、
+  // ほかの端末での変更も取り込む。
   // Artifact として開いたときは、チーム共有の1つのドキュメント（team/tree）に保存し、ほかの人の変更も取り込む。
   // 同時に編集した場合は、後から保存した人の内容が残る。
   let dbRef = null, saveTimer = null, saving = false, pending = false, readOnly = false;
-  let lastJson = null, remoteJson = null;
-  const SHARED = 'チームで共有中', RO = '閲覧のみ（変更はこの端末だけ）';
+  let lastJson = null, remoteJson = null, maxBytes = 250 * 1024;
+  let SHARED = 'チームで共有中';
+  const RO = '閲覧のみ（変更はこの端末だけ）';
   const setStatus = t => { $('#status').textContent = t; };
   function save(){
     try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
@@ -556,8 +561,8 @@ li.target>.row::after{
     saving = true;
     try{ await dbRef.set({json, updatedAt: Date.now()}); lastJson = json; setStatus(SHARED); }
     catch(e){
-      const big = new Blob([json]).size > 250 * 1024;
-      if(e && e.code === 'invalid_argument' && !big){ readOnly = true; setStatus(RO); }
+      const big = new Blob([json]).size > maxBytes;
+      if(e && (e.code === 'invalid_argument' || e.code === 'permission-denied') && !big){ readOnly = true; setStatus(RO); }
       else setStatus(big ? 'データが大きすぎて共有に保存できません（この端末には保存済み）' : '共有に保存できませんでした（この端末には保存済み）');
     }
     saving = false;
@@ -582,7 +587,10 @@ li.target>.row::after{
     render();
   }
   document.addEventListener('focusout', () => setTimeout(() => { if(remoteJson && !editing()) applyRemote(remoteJson); }, 0));
-  (async () => {
+  const FB = window.FIREBASE_CONFIG;
+  const useFirebase = !(window.claude && window.claude.use) && /^https?:$/.test(location.protocol) && !!(FB && FB.apiKey && FB.projectId);
+  if(useFirebase) initFirebase();
+  else (async () => {
     try{
       if(!window.claude || !window.claude.use){ setStatus('この端末に保存'); return; }
       const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
@@ -614,6 +622,70 @@ li.target>.row::after{
       }, () => {});
     }catch(e){ setStatus(dbRef ? '共有データを読み込めませんでした' : 'この端末に保存'); }
   })();
+
+  // Firebase（Google ログイン + Firestore）。SDK は CDN から読み込み、読めないとき（オフラインなど）はこの端末だけに保存する
+  async function initFirebase(){
+    const V = '11.10.0', base = 'https://www.gstatic.com/firebasejs/' + V + '/';
+    const authBtn = $('#authBtn');
+    let fa, ff, auth, fdb, unsub = null, user = null;
+    try{
+      const [fapp, a, f] = await Promise.all([
+        import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+      fa = a; ff = f;
+      const app = fapp.initializeApp(FB);
+      auth = fa.getAuth(app);
+      try{ fdb = ff.initializeFirestore(app, {localCache: ff.persistentLocalCache({tabManager: ff.persistentMultipleTabManager()})}); }
+      catch(e){ fdb = ff.getFirestore(app); }
+    }catch(e){ setStatus('この端末に保存（クラウドに接続できません）'); return; }
+    SHARED = 'クラウドに保存済み';
+    maxBytes = 1000 * 1024;              // Firestore の1ドキュメントの上限（約1MiB）
+    authBtn.hidden = false;
+    authBtn.addEventListener('click', async () => {
+      if(user){
+        if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; await flush(); }
+        await fa.signOut(auth).catch(() => {});
+        return;
+      }
+      const provider = new fa.GoogleAuthProvider();
+      try{ await fa.signInWithPopup(auth, provider); }
+      catch(e){
+        if(e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) fa.signInWithRedirect(auth, provider).catch(() => {});
+        else if(e && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') setStatus('ログインできませんでした');
+      }
+    });
+    // Firestore の参照を、既存の保存処理（get / set / onSnapshot）と同じ形で使えるようにする
+    const wrap = r => ({
+      get: async () => { const s = await ff.getDoc(r); return {exists: s.exists(), data: () => s.data()}; },
+      set: d => ff.setDoc(r, d),
+      onSnapshot: (cb, err) => ff.onSnapshot(r, s => cb({exists: s.exists(), metadata: s.metadata, data: () => s.data()}), err),
+    });
+    fa.onAuthStateChanged(auth, async u => {
+      user = u;
+      if(unsub){ unsub(); unsub = null; }
+      dbRef = null; readOnly = false; lastJson = null;
+      if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
+      authBtn.textContent = u ? 'ログアウト' : 'ログイン';
+      authBtn.title = u ? ((u.displayName || u.email || '') + ' でログイン中') : 'Google でログインするとクラウドに保存され、ほかの端末でも同じデータを使えます';
+      if(!u){ setStatus('この端末に保存'); return; }
+      setStatus('読み込み中…');
+      try{
+        const ref = wrap(ff.doc(fdb, 'users', u.uid, 'trees', 'main'));
+        const snap = await ref.get();
+        if(user !== u) return;
+        dbRef = ref;
+        if(snap.exists){
+          const d = snap.data();
+          if(d && typeof d.json === 'string') applyRemote(d.json);
+          setStatus(SHARED);
+        } else await flush();         // はじめてのログイン: この端末のデータをクラウドへ
+        unsub = ref.onSnapshot(s => {
+          if(!s.exists || s.metadata.hasPendingWrites) return;
+          const d = s.data();
+          if(d && typeof d.json === 'string') applyRemote(d.json);
+        }, () => setStatus('クラウドと同期できません（この端末には保存済み）'));
+      }catch(e){ setStatus('クラウドのデータを読み込めませんでした（この端末には保存済み）'); }
+    });
+  }
 
   /* ---------- render ---------- */
   function el(tag, cls, attrs){
@@ -1565,7 +1637,7 @@ li.target>.row::after{
   });
 
   render();
-  setStatus(loadLocal() ? 'この端末に保存' : '');
+  if(!useFirebase) setStatus(loadLocal() ? 'この端末に保存' : '');
 })();
 // PWA: オフライン起動とインストールのための Service Worker（http/https で開いたときだけ）
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){

@@ -7,8 +7,36 @@
 ガントチャートでは「休みの期間」（お盆・年末年始など）を登録でき、その日は所要日数に数えず飛ばして日程を引きます。「土日も休みにする」で週末も同じ扱いにできます。
 ツリーの上には、いま着手できるタスクを予定の早い順に並べた「今日やること」が出ます（「表示」で自分の担当だけに絞れます）。
 
-アプリ本体は `my_app/index.html` 1ファイル（HTML・CSS・JavaScript）で完結しています。データはブラウザの localStorage に保存されます。
+アプリ本体は `my_app/index.html` 1ファイル（HTML・CSS・JavaScript）で完結しています。データはブラウザの localStorage に保存され、Firebase を設定してログインすると Firestore にも保存されます（下記）。
 Claude の Artifact として公開した場合は、共有された全員が同じツリーを見て編集でき、ほかの人の変更も自動で反映されます（同時に編集したときは後から保存した内容が残ります）。
+
+## Firebase でデータを管理する
+
+`my_app/public/firebase-config.js` に Firebase の設定を書くと、画面右上に「ログイン」ボタンが出ます。Google でログインすると、ツリー・メンバー・進捗の記録などすべてのデータが Firestore の `users/{uid}/trees/main` に保存され、ほかの端末で同じアカウントでログインすれば同じデータを使えます（別の端末での変更も自動で反映されます）。
+設定が空のとき・ログインしていないとき・ファイルを直接開いたときは、これまで通りこの端末（localStorage）にだけ保存します。オフラインでもこの端末には保存され、つながったときにクラウドへ送られます。
+
+初回の設定手順:
+
+1. https://console.firebase.google.com でプロジェクトを作る
+2. 「Authentication」→「Sign-in method」で **Google** を有効にする。「設定」→「承認済みドメイン」に公開先（例: `sollall.github.io`）を追加する（`localhost` は最初から入っています）
+3. 「Firestore Database」を作成する（本番モードで可）
+4. 「プロジェクトの設定」→「マイアプリ」でウェブアプリを追加し、表示された `firebaseConfig` の値を `my_app/public/firebase-config.js` に貼り付ける（この値は公開しても問題ありません）
+5. セキュリティルール（自分のデータだけ読み書きできる）を反映する。コンソールの Firestore →「ルール」に `firestore.rules` の中身を貼るか、Firebase CLI で次を実行する
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase use --add
+firebase deploy --only firestore:rules
+```
+
+### Firebase Hosting で公開する（任意）
+
+GitHub Pages の代わりに Firebase Hosting でも公開できます（`firebase.json` にビルドと公開先を設定済み）。この場合、承認済みドメインの追加は不要です。
+
+```bash
+firebase deploy --only hosting
+```
 
 ## 起動方法
 
@@ -35,7 +63,7 @@ npm run dev
 公開ページはインストールできる Web アプリ（PWA）になっています。Chrome / Edge のアドレスバーのインストールボタン、スマホでは「ホーム画面に追加」から入れられ、一度開けばオフラインでも起動します。
 
 - `my_app/public/manifest.webmanifest` … アプリ名・アイコン・色
-- `my_app/public/sw.js` … Service Worker。アプリ本体はネット優先（更新はすぐ反映）、つながらないときは保存済みのものを使う。キャッシュの中身を大きく変えたときは `VERSION` を上げる
+- `my_app/public/sw.js` … Service Worker（Firebase SDK もキャッシュしてオフライン起動に対応）。アプリ本体はネット優先（更新はすぐ反映）、つながらないときは保存済みのものを使う。キャッシュの中身を大きく変えたときは `VERSION` を上げる
 - `my_app/public/icons/` … アイコン（`icon.svg` / `maskable.svg` が元データ）
 
 ## Microsoft Store への公開手順
