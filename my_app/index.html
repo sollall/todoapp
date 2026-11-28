@@ -211,6 +211,25 @@ li.blocked>.row input.range{cursor:not-allowed}
 .pick-item.off{color:var(--muted); cursor:default}
 .pick-item .why{font-size:.72rem; color:var(--muted); margin-left:auto; white-space:nowrap}
 .sheet-foot{display:flex; justify-content:flex-end; padding-top:12px}
+.sh-body{overflow:auto; display:flex; flex-direction:column; gap:10px; border-top:1px solid var(--line); padding-top:12px}
+.sh-field{display:flex; flex-direction:column; gap:4px; font-size:.82rem; color:var(--muted)}
+.sh-field select,.sh-field input,.sh-add input{font:inherit; font-size:.92rem; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; min-width:0}
+.sh-new{align-self:flex-start; font-size:.85rem; padding:4px 10px}
+.sh-h{font-size:.82rem; font-weight:500; color:var(--muted); margin:4px 0 0}
+.sh-members{list-style:none; margin:0; padding:0; border-top:1px solid var(--line)}
+.sh-member{display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid var(--line); font-size:.9rem; overflow-wrap:anywhere}
+.sh-tag{font-size:.72rem; color:var(--muted); border:1px solid var(--line); border-radius:10px; padding:0 7px; white-space:nowrap}
+.sh-x{margin-left:auto; border:0; background:none; color:var(--muted); font-size:1rem; padding:0 6px; border-radius:4px}
+.sh-x:hover{color:var(--dep); background:var(--hover)}
+.sh-add{display:flex; gap:8px}
+.sh-add[hidden]{display:none}
+.sh-add input{flex:1}
+.sh-body .hint{margin:0}
+.sh-actions{display:flex; flex-wrap:wrap; gap:8px}
+.sh-actions .btn-ghost{font-size:.85rem; padding:4px 10px}
+.sh-actions [hidden]{display:none}
+.sh-danger{border-color:var(--dep); color:var(--dep)}
+.sh-msg{font-size:.82rem; color:var(--next); margin:0; min-height:1.2em}
 
 /* focus path */
 li.path>.row::before{border-top-color:var(--next)}
@@ -332,6 +351,7 @@ li.target>.row::after{
     </div>
     <div class="top-actions">
       <span class="status" id="status" aria-live="polite"></span>
+      <button class="btn-ghost" id="shareBtn" hidden>共有</button>
       <button class="btn-ghost" id="authBtn" hidden>ログイン</button>
       <button class="btn-ghost" id="viewBtn">ガントチャート</button>
       <button class="btn" id="addRoot">目標を追加</button>
@@ -395,6 +415,31 @@ li.target>.row::after{
     <p class="hint">チェックした項目がすべて完了するまで、この項目とその下のタスクは着手できない扱いになります。</p>
     <div class="pick-list" id="pickList"></div>
     <div class="sheet-foot"><button class="btn" id="pickDone">閉じる</button></div>
+  </div>
+</div>
+<div class="modal" id="share" hidden role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+  <div class="sheet">
+    <h2 id="shareTitle">チームで共有</h2>
+    <p class="hint" id="shWho"></p>
+    <div class="sh-body">
+      <label class="sh-field">開くツリー<select id="shTree"></select></label>
+      <button class="btn-ghost sh-new" id="shNew" type="button">新しいツリーを作る</button>
+      <label class="sh-field">このツリーの名前<input type="text" id="shName" maxlength="60"></label>
+      <h3 class="sh-h">メンバー</h3>
+      <ul class="sh-members" id="shMembers"></ul>
+      <form class="sh-add" id="shAdd">
+        <input type="email" id="shEmail" placeholder="招待する人のメールアドレス" aria-label="招待するメールアドレス" autocomplete="off">
+        <button class="btn" type="submit">招待</button>
+      </form>
+      <p class="hint">招待された人は、そのメールアドレスでログインすると「開くツリー」から選べます。下のリンクを送っても開けます。全員が同じツリーを編集し、変更はすぐにほかの人にも反映されます（同時に編集したときは後から保存した内容が残ります）。</p>
+      <div class="sh-actions">
+        <button class="btn-ghost" id="shCopy" type="button">共有リンクをコピー</button>
+        <button class="btn-ghost sh-danger" id="shLeave" type="button">このツリーから抜ける</button>
+        <button class="btn-ghost sh-danger" id="shDelete" type="button">このツリーを削除</button>
+      </div>
+      <p class="sh-msg" id="shMsg" aria-live="polite"></p>
+    </div>
+    <div class="sheet-foot"><button class="btn" id="shClose" type="button">閉じる</button></div>
   </div>
 </div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="undo">元に戻す</button></div>
@@ -623,11 +668,13 @@ li.target>.row::after{
     }catch(e){ setStatus(dbRef ? '共有データを読み込めませんでした' : 'この端末に保存'); }
   })();
 
-  // Firebase（Google ログイン + Firestore）。SDK は CDN から読み込み、読めないとき（オフラインなど）はこの端末だけに保存する
+  // Firebase（Google ログイン + Firestore）。SDK は CDN から読み込み、読めないとき（オフラインなど）はこの端末だけに保存する。
+  // データは trees/{treeId} に1ツリー1ドキュメントで置き、members（メールアドレス）に入っている人だけが読み書きできる。
+  // users/{uid} には自分専用のツリー（personal）と最後に開いたツリー（last）を覚えておく。
   async function initFirebase(){
     const V = '11.10.0', base = 'https://www.gstatic.com/firebasejs/' + V + '/';
-    const authBtn = $('#authBtn');
-    let fa, ff, auth, fdb, unsub = null, user = null;
+    const authBtn = $('#authBtn'), shareBtn = $('#shareBtn');
+    let fa, ff, auth, fdb, unsub = null, user = null, treeId = null, meta = null, personalId = null;
     try{
       const [fapp, a, f] = await Promise.all([
         import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
@@ -636,10 +683,27 @@ li.target>.row::after{
       auth = fa.getAuth(app);
       try{ fdb = ff.initializeFirestore(app, {localCache: ff.persistentLocalCache({tabManager: ff.persistentMultipleTabManager()})}); }
       catch(e){ fdb = ff.getFirestore(app); }
+      if(FB.emulator){   // 開発用: firebase emulators:start で動かすとき
+        fa.connectAuthEmulator(auth, 'http://' + FB.emulator.auth, {disableWarnings: true});
+        const [h, p] = FB.emulator.firestore.split(':'); ff.connectFirestoreEmulator(fdb, h, +p);
+      }
     }catch(e){ setStatus('この端末に保存（クラウドに接続できません）'); return; }
-    SHARED = 'クラウドに保存済み';
+    if(FB.emulator) window.__arboFirebase = {fa, auth};   // テスト用
     maxBytes = 1000 * 1024;              // Firestore の1ドキュメントの上限（約1MiB）
     authBtn.hidden = false;
+    const myEmail = () => ((user && user.email) || '').toLowerCase();
+    const isOwner = () => !!(user && meta && meta.owner === user.uid);
+    const treeName = m => (m && m.name) || '名前なし';
+    const hashTree = () => { const m = /^#tree=([\w-]+)$/.exec(location.hash); return m ? m[1] : null; };
+    const clearHash = () => { if(hashTree()) history.replaceState(null, '', location.pathname + location.search); };
+    const updateLabel = () => {
+      SHARED = meta ? '「' + treeName(meta) + '」' + (meta.members.length > 1 ? 'をチームで共有中' : 'に保存済み') : 'クラウドに保存済み';
+    };
+    const userDoc = () => ff.doc(fdb, 'users', user.uid);
+    // しばらく表示しておきたいお知らせ（保存状態の表示で上書きしない）
+    let noticeUntil = 0;
+    const notice = t => { noticeUntil = Date.now() + 6000; setStatus(t); setTimeout(() => { if(Date.now() >= noticeUntil && dbRef && !saveTimer && !saving) setStatus(SHARED); }, 6100); };
+
     authBtn.addEventListener('click', async () => {
       if(user){
         if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; await flush(); }
@@ -653,39 +717,211 @@ li.target>.row::after{
         else if(e && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') setStatus('ログインできませんでした');
       }
     });
-    // Firestore の参照を、既存の保存処理（get / set / onSnapshot）と同じ形で使えるようにする
-    const wrap = r => ({
-      get: async () => { const s = await ff.getDoc(r); return {exists: s.exists(), data: () => s.data()}; },
-      set: d => ff.setDoc(r, d),
-      onSnapshot: (cb, err) => ff.onSnapshot(r, s => cb({exists: s.exists(), metadata: s.metadata, data: () => s.data()}), err),
-    });
+
+    function detach(){
+      if(unsub){ unsub(); unsub = null; }
+      dbRef = null; readOnly = false; lastJson = null; remoteJson = null; treeId = null; meta = null;
+    }
+    // ツリーを開く。開けなかったら false
+    async function openTree(id){
+      const u = user;
+      if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; await flush(); }
+      detach();
+      setStatus('読み込み中…');
+      const r = ff.doc(fdb, 'trees', id);
+      let s; try{ s = await ff.getDoc(r); }catch(e){ return false; }
+      if(user !== u) return true;
+      if(!s.exists()) return false;
+      const d = s.data();
+      treeId = id; meta = d;
+      dbRef = {
+        get: async () => { const x = await ff.getDoc(r); return {exists: x.exists(), data: () => x.data()}; },
+        set: v => ff.setDoc(r, v, {merge: true}),   // owner・members などは消さずに json だけ書き換える
+      };
+      if(typeof d.json === 'string'){
+        // 別のツリーに切り替えるので、入力中かどうかに関係なく画面を作り直す
+        if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        lastJson = null; applyRemote(d.json);
+      }
+      undoSnap = null; $('#toast').hidden = true;
+      closePanel();
+      updateLabel(); setStatus(SHARED);
+      try{ localStorage.setItem('arbo-tree:' + u.uid, id); }catch(e){}
+      ff.setDoc(userDoc(), {last: id}, {merge: true}).catch(() => {});
+      unsub = ff.onSnapshot(r, x => {
+        if(treeId !== id) return;
+        if(!x.exists()){ goPersonal('「' + treeName(meta) + '」を開けなくなりました（削除されたか、共有から外れました）'); return; }
+        meta = x.data(); updateLabel(); if(!saveTimer && !saving && !readOnly && Date.now() >= noticeUntil) setStatus(SHARED);
+        if(!$('#share').hidden) renderShare();
+        if(x.metadata.hasPendingWrites) return;
+        if(typeof meta.json === 'string') applyRemote(meta.json);
+      }, e => {
+        if(treeId !== id) return;
+        if(e && e.code === 'permission-denied' && id !== personalId) goPersonal('「' + treeName(meta) + '」を開けなくなりました（削除されたか、共有から外れました）');
+        else setStatus('クラウドと同期できません（この端末には保存済み）');
+      });
+      return true;
+    }
+    async function goPersonal(msg){
+      saveTimer && clearTimeout(saveTimer); saveTimer = null;
+      detach();
+      await openTree(personalId);
+      if(msg) notice(msg);
+    }
+    async function newTree(name, json){
+      const r = ff.doc(ff.collection(fdb, 'trees'));
+      await ff.setDoc(r, {name, owner: user.uid, ownerEmail: myEmail(), members: [myEmail()], json, updatedAt: Date.now()});
+      return r.id;
+    }
+
     fa.onAuthStateChanged(auth, async u => {
       user = u;
-      if(unsub){ unsub(); unsub = null; }
-      dbRef = null; readOnly = false; lastJson = null;
       if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
+      detach(); personalId = null;
+      closeShare();
       authBtn.textContent = u ? 'ログアウト' : 'ログイン';
-      authBtn.title = u ? ((u.displayName || u.email || '') + ' でログイン中') : 'Google でログインするとクラウドに保存され、ほかの端末でも同じデータを使えます';
-      if(!u){ setStatus('この端末に保存'); return; }
+      authBtn.title = u ? ((u.displayName || u.email || '') + ' でログイン中') : 'Google でログインするとクラウドに保存され、ほかの端末やチームのメンバーと同じデータを使えます';
+      shareBtn.hidden = !u;
+      if(!u){ setStatus(hashTree() ? 'ログインすると共有されたツリーを開けます' : 'この端末に保存'); return; }
       setStatus('読み込み中…');
       try{
-        const ref = wrap(ff.doc(fdb, 'users', u.uid, 'trees', 'main'));
-        const snap = await ref.get();
+        const us = await ff.getDoc(userDoc());
         if(user !== u) return;
-        dbRef = ref;
-        if(snap.exists){
-          const d = snap.data();
-          if(d && typeof d.json === 'string') applyRemote(d.json);
-          setStatus(SHARED);
-        } else await flush();         // はじめてのログイン: この端末のデータをクラウドへ
-        unsub = ref.onSnapshot(s => {
-          if(!s.exists || s.metadata.hasPendingWrites) return;
-          const d = s.data();
-          if(d && typeof d.json === 'string') applyRemote(d.json);
-        }, () => setStatus('クラウドと同期できません（この端末には保存済み）'));
-      }catch(e){ setStatus('クラウドのデータを読み込めませんでした（この端末には保存済み）'); }
+        const prof = us.exists() ? us.data() : {};
+        personalId = prof.personal || null;
+        if(!personalId){
+          // はじめてのログイン: 以前の保存場所（users/{uid}/trees/main）か、この端末のデータで自分のツリーを作る
+          let json = JSON.stringify(state);
+          const old = await ff.getDoc(ff.doc(fdb, 'users', u.uid, 'trees', 'main')).catch(() => null);
+          if(old && old.exists() && typeof old.data().json === 'string') json = old.data().json;
+          personalId = await newTree('マイツリー', json);
+          await ff.setDoc(userDoc(), {personal: personalId}, {merge: true});
+        }
+        let last = prof.last; try{ last = localStorage.getItem('arbo-tree:' + u.uid) || last; }catch(e){}
+        const want = hashTree() || last || personalId;
+        let ok = await openTree(want);
+        if(!ok && want !== personalId){
+          ok = await openTree(personalId);
+          if(ok && hashTree()) notice('このツリーを開く権限がありません（共有されたメールアドレスでログインしてください）');
+        }
+        clearHash();
+        if(!ok) setStatus('クラウドのデータを読み込めませんでした（この端末には保存済み）');
+      }catch(e){ if(user === u) setStatus('クラウドのデータを読み込めませんでした（この端末には保存済み）'); }
+    });
+    window.addEventListener('hashchange', () => { const id = hashTree(); if(id && user){ clearHash(); if(id !== treeId) openTree(id).then(ok => { if(!ok) goPersonal('このツリーを開く権限がありません'); }); } });
+
+    /* ----- 共有ダイアログ ----- */
+    let shareReturn = null;
+    shareBtn.addEventListener('click', () => { shareReturn = document.activeElement; $('#share').hidden = false; renderShare(); loadTreeList(); $('#shClose').focus(); });
+    function closeShare(){
+      if($('#share').hidden) return;
+      $('#share').hidden = true; $('#shMsg').textContent = '';
+      if(shareReturn && document.contains(shareReturn)) shareReturn.focus();
+    }
+    const shMsg = t => { $('#shMsg').textContent = t || ''; };
+    async function loadTreeList(){
+      const sel = $('#shTree');
+      if(!user) return;
+      try{
+        const q = ff.query(ff.collection(fdb, 'trees'), ff.where('members', 'array-contains', myEmail()));
+        const res = await ff.getDocs(q);
+        const list = res.docs.map(x => ({id: x.id, ...x.data()}));
+        list.sort((a, b) => (a.id === personalId ? -1 : b.id === personalId ? 1 : treeName(a).localeCompare(treeName(b), 'ja')));
+        sel.textContent = '';
+        list.forEach(t => {
+          const who = t.owner === user.uid ? '' : '（' + (t.ownerEmail || '') + ' さんのツリー）';
+          const o = el('option', null, {value: t.id, text: treeName(t) + who + (t.members.length > 1 ? ' · ' + t.members.length + '人' : '')});
+          if(t.id === treeId) o.selected = true;
+          sel.appendChild(o);
+        });
+      }catch(e){ shMsg('ツリーの一覧を読み込めませんでした'); }
+    }
+    function renderShare(){
+      if(!meta || !user){ closeShare(); return; }
+      $('#shWho').textContent = (user.email || '') + ' でログイン中';
+      const name = $('#shName');
+      if(document.activeElement !== name) name.value = meta.name || '';
+      const ul = $('#shMembers'); ul.textContent = '';
+      const owner = isOwner();
+      meta.members.forEach(m => {
+        const li = el('li', 'sh-member');
+        li.appendChild(el('span', null, {text: m}));
+        if(m === meta.ownerEmail) li.appendChild(el('span', 'sh-tag', {text: 'オーナー'}));
+        else if(m === myEmail()) li.appendChild(el('span', 'sh-tag', {text: '自分'}));
+        if(owner && m !== meta.ownerEmail){
+          const b = el('button', 'sh-x', {type: 'button', 'data-email': m, 'aria-label': m + ' を共有から外す', title: '共有から外す', text: '×'});
+          li.appendChild(b);
+        }
+        ul.appendChild(li);
+      });
+      $('#shAdd').hidden = !owner;
+      $('#shLeave').hidden = owner;
+      $('#shDelete').hidden = !owner || treeId === personalId;
+      // 一覧の選択と名前を最新に
+      const o = $('#shTree').querySelector('option[value="' + treeId + '"]');
+      if(o){ o.selected = true; }
+    }
+    $('#share').addEventListener('click', e => { if(e.target.id === 'share') closeShare(); });
+    $('#shClose').addEventListener('click', closeShare);
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('#share').hidden){ closeShare(); e.preventDefault(); } });
+    $('#shTree').addEventListener('change', async e => {
+      const id = e.target.value; if(!id || id === treeId) return;
+      shMsg('');
+      if(!(await openTree(id))){ shMsg('このツリーは開けませんでした'); await goPersonal(); }
+      renderShare(); loadTreeList();
+    });
+    $('#shNew').addEventListener('click', async () => {
+      const name = (prompt('新しいツリーの名前', 'チームのツリー') || '').trim();
+      if(!name) return;
+      try{
+        const id = await newTree(name, JSON.stringify({roots: [], logs: {}, members: [{id: uid(), name: (user.displayName || '自分')}]}));
+        await openTree(id); renderShare(); loadTreeList();
+        shMsg('「' + name + '」を作りました。メンバーを招待してください');
+      }catch(e){ shMsg('ツリーを作れませんでした'); }
+    });
+    $('#shName').addEventListener('change', async e => {
+      const v = e.target.value.trim(); if(!v || !treeId || v === meta.name) return;
+      try{ await ff.updateDoc(ff.doc(fdb, 'trees', treeId), {name: v}); loadTreeList(); }catch(err){ shMsg('名前を変えられませんでした'); }
+    });
+    $('#shAdd').addEventListener('submit', async e => {
+      e.preventDefault();
+      const inp = $('#shEmail'), v = inp.value.trim().toLowerCase();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){ shMsg('メールアドレスを入れてください'); return; }
+      if(meta.members.includes(v)){ shMsg(v + ' はすでにメンバーです'); return; }
+      try{
+        await ff.updateDoc(ff.doc(fdb, 'trees', treeId), {members: ff.arrayUnion(v)});
+        inp.value = ''; shMsg(v + ' を招待しました。その Google アカウントでログインすると、このツリーを開けます');
+      }catch(err){ shMsg('招待できませんでした'); }
+    });
+    $('#shMembers').addEventListener('click', async e => {
+      const b = e.target.closest('.sh-x'); if(!b) return;
+      const m = b.getAttribute('data-email');
+      if(!confirm(m + ' をこのツリーの共有から外しますか？')) return;
+      try{ await ff.updateDoc(ff.doc(fdb, 'trees', treeId), {members: ff.arrayRemove(m)}); }catch(err){ shMsg('外せませんでした'); }
+    });
+    $('#shCopy').addEventListener('click', async () => {
+      const url = location.origin + location.pathname + '#tree=' + treeId;
+      try{ await navigator.clipboard.writeText(url); shMsg('リンクをコピーしました（メンバーに招待した人だけが開けます）'); }
+      catch(err){ prompt('共有リンク（メンバーに招待した人だけが開けます）', url); }
+    });
+    $('#shLeave').addEventListener('click', async () => {
+      if(!confirm('「' + treeName(meta) + '」の共有から抜けますか？（もう一度招待されるまで開けなくなります）')) return;
+      const id = treeId;
+      try{
+        if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; await flush(); }
+        detach();
+        await ff.updateDoc(ff.doc(fdb, 'trees', id), {members: ff.arrayRemove(myEmail())});
+        await goPersonal(); renderShare(); loadTreeList();
+      }catch(err){ shMsg('抜けられませんでした'); await openTree(id); }
+    });
+    $('#shDelete').addEventListener('click', async () => {
+      if(!confirm('「' + treeName(meta) + '」を削除しますか？メンバー全員がこのツリーを開けなくなり、元に戻せません。')) return;
+      const id = treeId;
+      try{ detach(); await ff.deleteDoc(ff.doc(fdb, 'trees', id)); await goPersonal(); renderShare(); loadTreeList(); }
+      catch(err){ shMsg('削除できませんでした'); await openTree(id); }
     });
   }
+
 
   /* ---------- render ---------- */
   function el(tag, cls, attrs){

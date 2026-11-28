@@ -1,7 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 各ユーザーは自分のデータ（users/{uid}/...）だけを読み書きできる
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+    function me() {
+      return request.auth.token.email.lower();
+    }
+
+    // ツリー（1ツリー = 1ドキュメント）。members に入っているメールアドレスの人だけが読み書きできる
+    //   owner / ownerEmail … 作った人（変更不可）
+    //   members           … 共有メンバーのメールアドレス（小文字）。オーナーだけが増やしたり外したりできる。
+    //                       オーナー以外は自分を外す（抜ける）ことだけできる
+    match /trees/{treeId} {
+      allow get: if signedIn() && (resource == null || me() in resource.data.members);
+      allow list: if signedIn() && me() in resource.data.members;
+      allow create: if signedIn()
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.ownerEmail == me()
+        && request.resource.data.members is list
+        && request.resource.data.members.size() <= 100
+        && me() in request.resource.data.members;
+      allow update: if signedIn()
+        && me() in resource.data.members
+        && request.resource.data.owner == resource.data.owner
+        && request.resource.data.ownerEmail == resource.data.ownerEmail
+        && request.resource.data.members is list
+        && request.resource.data.members.size() <= 100
+        && (
+          // オーナー: メンバーを自由に変えられる（自分は外せない）
+          (request.auth.uid == resource.data.owner && resource.data.ownerEmail in request.resource.data.members)
+          // メンバー: メンバーは変えずに編集する
+          || request.resource.data.members == resource.data.members
+          // メンバー: 自分だけを外す（抜ける）
+          || request.resource.data.members.toSet() == resource.data.members.toSet().difference([me()].toSet())
+        );
+      allow delete: if signedIn() && request.auth.uid == resource.data.owner;
+    }
+
+    // 各ユーザーの設定（自分のツリーの ID・最後に開いたツリー）と、以前の保存場所（users/{uid}/trees/main）
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }

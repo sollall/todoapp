@@ -10,10 +10,22 @@
 アプリ本体は `my_app/index.html` 1ファイル（HTML・CSS・JavaScript）で完結しています。データはブラウザの localStorage に保存され、Firebase を設定してログインすると Firestore にも保存されます（下記）。
 Claude の Artifact として公開した場合は、共有された全員が同じツリーを見て編集でき、ほかの人の変更も自動で反映されます（同時に編集したときは後から保存した内容が残ります）。
 
-## Firebase でデータを管理する
+## Firebase でデータを管理する・チームで共有する
 
-`my_app/public/firebase-config.js` に Firebase の設定を書くと、画面右上に「ログイン」ボタンが出ます。Google でログインすると、ツリー・メンバー・進捗の記録などすべてのデータが Firestore の `users/{uid}/trees/main` に保存され、ほかの端末で同じアカウントでログインすれば同じデータを使えます（別の端末での変更も自動で反映されます）。
+`my_app/public/firebase-config.js` に Firebase の設定を書くと、画面右上に「ログイン」ボタンが出ます。Google でログインすると、ツリー・メンバー・進捗の記録などすべてのデータが Firestore に保存され、ほかの端末で同じアカウントでログインすれば同じデータを使えます。
 設定が空のとき・ログインしていないとき・ファイルを直接開いたときは、これまで通りこの端末（localStorage）にだけ保存します。オフラインでもこの端末には保存され、つながったときにクラウドへ送られます。
+
+### チームで共有する
+
+ログインすると「共有」ボタンが出ます。
+
+- **新しいツリーを作る** … チーム用のツリーを作ります（最初のログインで自分用の「マイツリー」が自動で作られます。これも共有できます）
+- **招待** … メンバーのメールアドレス（Google アカウント）を追加します。招待された人はそのアカウントでログインすると「開くツリー」から選べます。「共有リンクをコピー」で送ったリンクからも開けます
+- メンバー全員が同じツリーを編集でき、ほかの人の変更はすぐに反映されます（同時に編集したときは後から保存した内容が残ります）
+- メンバーの追加・解除とツリーの削除はオーナー（作った人）だけができます。オーナー以外は「このツリーから抜ける」ことができます
+- ガントチャートの「メンバー」（担当者の名前）は共有メンバーとは別に、ツリーの中で登録します
+
+データは `trees/{ツリーID}` に1ツリー1ドキュメント（`name`・`owner`・`ownerEmail`・`members`・`json`）で保存され、`members` に入っているメールアドレスの人だけが読み書きできます（`firestore.rules`）。`users/{uid}` には自分用ツリーの ID と最後に開いたツリーを覚えています。
 
 初回の設定手順:
 
@@ -21,13 +33,21 @@ Claude の Artifact として公開した場合は、共有された全員が同
 2. 「Authentication」→「Sign-in method」で **Google** を有効にする。「設定」→「承認済みドメイン」に公開先（例: `sollall.github.io`）を追加する（`localhost` は最初から入っています）
 3. 「Firestore Database」を作成する（本番モードで可）
 4. 「プロジェクトの設定」→「マイアプリ」でウェブアプリを追加し、表示された `firebaseConfig` の値を `my_app/public/firebase-config.js` に貼り付ける（この値は公開しても問題ありません）
-5. セキュリティルール（自分のデータだけ読み書きできる）を反映する。コンソールの Firestore →「ルール」に `firestore.rules` の中身を貼るか、Firebase CLI で次を実行する
+5. セキュリティルール（メンバーだけが読み書きできる）を反映する。コンソールの Firestore →「ルール」に `firestore.rules` の中身を貼るか、Firebase CLI で次を実行する
 
 ```bash
 npm install -g firebase-tools
 firebase login
 firebase use --add
 firebase deploy --only firestore:rules
+```
+
+### 手元で試す（エミュレーター）
+
+本物の Firebase プロジェクトを使わずに試すときは、Java を入れたうえで次を実行し、`firebase-config.js` を `projectId: 'demo-arbo'` と `emulator: {auth: '127.0.0.1:9099', firestore: '127.0.0.1:8080'}` を含む設定にします（ログインはエミュレーターの画面で好きなメールアドレスを入れて行えます）。
+
+```bash
+firebase emulators:start --only auth,firestore --project demo-arbo
 ```
 
 ### Firebase Hosting で公開する（任意）
