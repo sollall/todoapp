@@ -2,7 +2,7 @@
 // - アプリ本体（HTML・manifest・アイコン）: ネット優先。つながらないときは保存済みのものを使う
 //   → push した更新はオンラインなら次回起動時にすぐ反映される
 // - Google Fonts・Firebase SDK: 保存済みを優先して返し、裏で最新に更新する
-const VERSION = 'v2';
+const VERSION = 'v3';
 const APP_CACHE = `app-${VERSION}`;
 const FONT_CACHE = `fonts-${VERSION}`;
 const APP_SHELL = [
@@ -10,6 +10,7 @@ const APP_SHELL = [
   './index.html',
   './manifest.webmanifest',
   './firebase-config.js',
+  './demo-backend.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',

@@ -234,6 +234,12 @@ li.blocked>.row input.range{cursor:not-allowed}
 .sh-pro p{margin:0 0 8px}
 .sh-pro[hidden],.sh-pro [hidden]{display:none}
 .sh-pro .btn:not([hidden]){display:inline-block; text-decoration:none; font-size:.85rem; padding:6px 12px}
+.demo-bar{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; font-size:.82rem; background:color-mix(in srgb,var(--or) 12%,var(--surface)); border:1px solid color-mix(in srgb,var(--or) 45%,transparent); border-radius:8px; padding:8px 12px; margin-bottom:14px}
+.demo-bar[hidden],.demo-bar [hidden]{display:none}
+.demo-bar strong{color:var(--or)}
+.demo-who{font-weight:700}
+.demo-bar .btn-ghost{font-size:.8rem; padding:2px 10px}
+.demo-bar a{color:var(--muted)}
 .sh-msg{font-size:.82rem; color:var(--next); margin:0; min-height:1.2em}
 
 /* focus path */
@@ -350,6 +356,14 @@ li.target>.row::after{
 </head>
 <body>
 <div class="wrap">
+  <div class="demo-bar" id="demoBar" hidden>
+    <strong>テストモード</strong>
+    <span>Firebase を使わず、このブラウザの中だけで動きます。別のタブで開くと別のユーザーでログインできます。</span>
+    <span class="demo-who" id="demoWho"></span>
+    <button class="btn-ghost" id="demoPro" type="button" hidden>有料版にする</button>
+    <button class="btn-ghost" id="demoReset" type="button">テストデータを消す</button>
+    <a id="demoExit" href="./">テストモードを終了</a>
+  </div>
   <header class="top">
     <div>
       <h1>Arbo</h1>
@@ -442,7 +456,7 @@ li.target>.row::after{
         <p id="shProMsg"></p>
         <a class="btn" id="shUpgrade" target="_blank" rel="noopener" hidden>有料版について</a>
       </div>
-      <p class="hint">招待された人は、そのメールアドレスでログインすると「開くツリー」から選べます。下のリンクを送っても開けます。全員が同じツリーを編集し、変更はすぐにほかの人にも反映されます（同時に編集したときは後から保存した内容が残ります）。</p>
+      <p class="hint">招待された人は、そのメールアドレスでログインすると「開くツリー」から選べます。下のリンクを送っても開けます。全員が同じツリーを見られ、有料版のメンバーは編集できます。変更はすぐにほかの人にも反映されます（同時に編集したときは後から保存した内容が残ります）。</p>
       <div class="sh-actions">
         <button class="btn-ghost" id="shCopy" type="button">共有リンクをコピー</button>
         <button class="btn-ghost sh-danger" id="shLeave" type="button">このツリーから抜ける</button>
@@ -457,7 +471,9 @@ li.target>.row::after{
 
 <script>
 (function(){
-  const KEY = 'goal-tree-v1';
+  // テストモード（URL に ?demo を付けて開く）: Firebase の代わりに、このブラウザの中だけで動く簡易バックエンド（demo-backend.js）を使う
+  const DEMO = /[?&]demo\b/.test(location.search) && !(window.claude && window.claude.use);
+  const KEY = DEMO ? 'arbo-demo-tree' : 'goal-tree-v1';
   const SAMPLE = {roots:[{id:'r1',title:'ブログを公開する',type:'and',children:[
     {id:'a',title:'最初の記事を3本書く',type:'and',children:[
       {id:'a1',title:'自己紹介の記事',type:'task',progress:100},
@@ -601,7 +617,7 @@ li.target>.row::after{
   // Firebase の共有ツリーを開いているあいだ、担当者の候補を共有メンバーに合わせる関数（initFirebase が入れる）
   let cloudSync = null;
   let SHARED = 'チームで共有中';
-  const RO = '閲覧のみ（変更はこの端末だけ）';
+  let RO = '閲覧のみ（変更はこの端末だけ）';
   const setStatus = t => { $('#status').textContent = t; };
   function save(){
     try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
@@ -646,8 +662,8 @@ li.target>.row::after{
     render();
   }
   document.addEventListener('focusout', () => setTimeout(() => { if(remoteJson && !editing()) applyRemote(remoteJson); }, 0));
-  const FB = window.FIREBASE_CONFIG;
-  const useFirebase = !(window.claude && window.claude.use) && /^https?:$/.test(location.protocol) && !!(FB && FB.apiKey && FB.projectId);
+  const FB = window.FIREBASE_CONFIG || {};
+  const useFirebase = DEMO || (!(window.claude && window.claude.use) && /^https?:$/.test(location.protocol) && !!(FB.apiKey && FB.projectId));
   if(useFirebase) initFirebase();
   else (async () => {
     try{
@@ -688,13 +704,17 @@ li.target>.row::after{
   async function initFirebase(){
     const V = '11.10.0', base = 'https://www.gstatic.com/firebasejs/' + V + '/';
     const authBtn = $('#authBtn'), shareBtn = $('#shareBtn');
-    let fa, ff, auth, fdb, unsub = null, user = null, treeId = null, meta = null, personalId = null;
+    let fa, ff, auth, fdb, demo = null, unsub = null, user = null, treeId = null, meta = null, personalId = null;
     // 有料版: plans/{uid} の until（期限）が今より先なら有効。plans はサーバー（管理者・決済の仕組み）だけが書き込める
     let myPro = false, unsubPlan = null;
     const planCache = new Map();   // uid → 有料版か（共有画面のメンバー一覧に出す）
     const proOf = d => !!(d && d.until && typeof d.until.toMillis === 'function' && d.until.toMillis() > Date.now());
-    const UPGRADE = FB.upgradeUrl || '';
-    try{
+    const UPGRADE = DEMO ? '' : (FB.upgradeUrl || '');
+    RO = '閲覧のみ（共有中のツリーの編集は有料版の機能です。変更はこの端末だけ）';
+    if(DEMO){
+      try{ const m = await import(new URL('demo-backend' + '.js', document.baseURI).href); fa = m.fa; ff = m.ff; demo = m.demo; auth = fa.getAuth(); fdb = {}; }
+      catch(e){ setStatus('テストモードを始められませんでした（http または https で開いてください）'); return; }
+    } else try{
       const [fapp, a, f] = await Promise.all([
         import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
       fa = a; ff = f;
@@ -708,6 +728,24 @@ li.target>.row::after{
       }
     }catch(e){ setStatus('この端末に保存（クラウドに接続できません）'); return; }
     if(FB.emulator) window.__arboFirebase = {fa, auth};   // テスト用
+    // テストモードの操作バー（ユーザーの表示・有料版の切り替え・データの消去）
+    function demoUI(){
+      if(!demo) return;
+      $('#demoBar').hidden = false;
+      $('#demoWho').textContent = user ? user.email + '（' + (myPro ? '有料版' : '無料版') + '）でログイン中' : 'ログインしていません（右上の「ログイン」から、好きなメールアドレスで入れます）';
+      $('#demoPro').hidden = !user;
+      $('#demoPro').textContent = myPro ? '無料版に戻す' : '有料版にする';
+    }
+    if(demo){
+      $('#demoExit').href = location.pathname;
+      $('#demoPro').addEventListener('click', () => { if(user) demo.setPro(user.uid, !myPro); });
+      $('#demoReset').addEventListener('click', () => {
+        if(!confirm('テストモードのデータ（ユーザー・ツリー・有料版の状態）をすべて消しますか？')) return;
+        demo.reset(); try{ localStorage.removeItem(KEY); }catch(e){}
+        location.reload();
+      });
+      demoUI();
+    }
     maxBytes = 1000 * 1024;              // Firestore の1ドキュメントの上限（約1MiB）
     authBtn.hidden = false;
     const myEmail = () => ((user && user.email) || '').toLowerCase();
@@ -759,11 +797,14 @@ li.target>.row::after{
       old.forEach(m => { const hit = list.find(x => x.name === m.name); if(hit) map.set(m.id, hit.id); });
       if(old.length === 1 && !map.size && (state.members || []).length === 1) map.set(old[0].id, meta.ownerEmail);
       indexTree();
+      let moved = false;
       nodesMap.forEach(n => {
         if(!n.who || ids.has(n.who)) return;
         if(map.has(n.who)) n.who = map.get(n.who); else delete n.who;   // 共有から外れた人の担当は「自動」に戻す
+        moved = true;
       });
       state.members = list;
+      return moved;   // 担当を付け替えた（保存が必要）
     }
     // 共有中（メンバー2人以上）のツリーを編集できるのは有料版のユーザーだけ。無料版の人は閲覧のみ
     function applyLock(){
@@ -771,7 +812,7 @@ li.target>.row::after{
       const lock = meta.members.length > 1 && !myPro;
       if(lock === readOnly) return;
       readOnly = lock;
-      if(lock) setStatus('閲覧のみ（共有中のツリーの編集は有料版の機能です。変更はこの端末だけ）');
+      if(lock) setStatus(RO);
       else { setStatus(SHARED); if(lastJson !== JSON.stringify(state)) save(); }
       if(!$('#share').hidden) renderShare();
     }
@@ -804,7 +845,7 @@ li.target>.row::after{
       if(mine.length) ff.updateDoc(r, ...mine).catch(() => {});
       undoSnap = null; $('#toast').hidden = true;
       closePanel();
-      updateLabel(); setStatus(readOnly ? '閲覧のみ（共有中のツリーの編集は有料版の機能です。変更はこの端末だけ）' : SHARED);
+      updateLabel(); setStatus(readOnly ? RO : SHARED);
       try{ localStorage.setItem('arbo-tree:' + u.uid, id); }catch(e){}
       ff.setDoc(userDoc(), {last: id}, {merge: true}).catch(() => {});
       unsub = ff.onSnapshot(r, x => {
@@ -816,7 +857,7 @@ li.target>.row::after{
         if(!$('#share').hidden) renderShare();
         const json = typeof meta.json === 'string' ? meta.json : null;
         if(!x.metadata.hasPendingWrites && json && json !== lastJson) applyRemote(json);
-        else if(before !== JSON.stringify([meta.members, meta.names])){ syncMembers(); render(); if(!x.metadata.hasPendingWrites) save(); }   // メンバーだけ変わった
+        else if(before !== JSON.stringify([meta.members, meta.names])){ const moved = syncMembers(); render(); if(moved && !readOnly) save(); }   // メンバーだけ変わった
       }, e => {
         if(treeId !== id) return;
         if(e && e.code === 'permission-denied' && id !== personalId) goPersonal('「' + treeName(meta) + '」を開けなくなりました（削除されたか、共有から外れました）');
@@ -844,13 +885,14 @@ li.target>.row::after{
       authBtn.textContent = u ? 'ログアウト' : 'ログイン';
       authBtn.title = u ? ((u.displayName || u.email || '') + ' でログイン中') : 'Google でログインするとクラウドに保存され、ほかの端末やチームのメンバーと同じデータを使えます';
       shareBtn.hidden = !u;
+      demoUI();
       if(unsubPlan){ unsubPlan(); unsubPlan = null; }
       myPro = false;
       let planReady = null;
       const planLoaded = new Promise(res => { planReady = res; setTimeout(res, 3000); });
       if(u) unsubPlan = ff.onSnapshot(ff.doc(fdb, 'plans', u.uid), x => {
         myPro = proOf(x.exists() ? x.data() : null);
-        planReady();
+        planReady(); demoUI();
         planCache.set(u.uid, myPro);
         applyLock();
         if(!$('#share').hidden) renderShare();
@@ -998,7 +1040,7 @@ li.target>.row::after{
       try{ await ff.updateDoc(ff.doc(fdb, 'trees', treeId), {members: ff.arrayRemove(m)}); }catch(err){ shMsg('外せませんでした'); }
     });
     $('#shCopy').addEventListener('click', async () => {
-      const url = location.origin + location.pathname + '#tree=' + treeId;
+      const url = location.origin + location.pathname + location.search + '#tree=' + treeId;
       try{ await navigator.clipboard.writeText(url); shMsg('リンクをコピーしました（メンバーに招待した人だけが開けます）'); }
       catch(err){ prompt('共有リンク（メンバーに招待した人だけが開けます）', url); }
     });
