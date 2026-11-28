@@ -219,6 +219,7 @@ li.blocked>.row input.range{cursor:not-allowed}
 .sh-members{list-style:none; margin:0; padding:0; border-top:1px solid var(--line)}
 .sh-member{display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid var(--line); font-size:.9rem; overflow-wrap:anywhere}
 .sh-tag{font-size:.72rem; color:var(--muted); border:1px solid var(--line); border-radius:10px; padding:0 7px; white-space:nowrap}
+.sh-tag.pro{color:var(--done); border-color:var(--done)}
 .sh-x{margin-left:auto; border:0; background:none; color:var(--muted); font-size:1rem; padding:0 6px; border-radius:4px}
 .sh-x:hover{color:var(--dep); background:var(--hover)}
 .sh-add{display:flex; gap:8px}
@@ -441,7 +442,6 @@ li.target>.row::after{
         <p id="shProMsg"></p>
         <a class="btn" id="shUpgrade" target="_blank" rel="noopener" hidden>有料版について</a>
       </div>
-      <p class="sh-pro" id="shLocked" hidden>オーナーの有料版の期限が切れているため、このツリーは閲覧のみです。</p>
       <p class="hint">招待された人は、そのメールアドレスでログインすると「開くツリー」から選べます。下のリンクを送っても開けます。全員が同じツリーを編集し、変更はすぐにほかの人にも反映されます（同時に編集したときは後から保存した内容が残ります）。</p>
       <div class="sh-actions">
         <button class="btn-ghost" id="shCopy" type="button">共有リンクをコピー</button>
@@ -690,7 +690,8 @@ li.target>.row::after{
     const authBtn = $('#authBtn'), shareBtn = $('#shareBtn');
     let fa, ff, auth, fdb, unsub = null, user = null, treeId = null, meta = null, personalId = null;
     // 有料版: plans/{uid} の until（期限）が今より先なら有効。plans はサーバー（管理者・決済の仕組み）だけが書き込める
-    let myPro = false, unsubPlan = null, ownerPro = true, ownerPlanFor = null, unsubOwnerPlan = null;
+    let myPro = false, unsubPlan = null;
+    const planCache = new Map();   // uid → 有料版か（共有画面のメンバー一覧に出す）
     const proOf = d => !!(d && d.until && typeof d.until.toMillis === 'function' && d.until.toMillis() > Date.now());
     const UPGRADE = FB.upgradeUrl || '';
     try{
@@ -738,9 +739,8 @@ li.target>.row::after{
 
     function detach(){
       if(unsub){ unsub(); unsub = null; }
-      if(unsubOwnerPlan){ unsubOwnerPlan(); unsubOwnerPlan = null; }
       dbRef = null; readOnly = false; lastJson = null; remoteJson = null; treeId = null; meta = null;
-      cloudSync = null; ownerPro = true; ownerPlanFor = null;
+      cloudSync = null;
     }
     // 担当者の候補 = 共有メンバー（id はメールアドレス、名前は各自の Google アカウントの表示名）
     function syncMembers(){
@@ -760,25 +760,13 @@ li.target>.row::after{
       });
       state.members = list;
     }
-    // オーナーの有料版が切れている共有ツリーは、オーナー以外は閲覧のみ
-    function watchOwnerPlan(){
-      if(!meta || ownerPlanFor === meta.owner) return;
-      if(unsubOwnerPlan){ unsubOwnerPlan(); unsubOwnerPlan = null; }
-      ownerPlanFor = meta.owner;
-      if(meta.owner === user.uid){ ownerPro = myPro; return; }
-      const id = treeId;
-      unsubOwnerPlan = ff.onSnapshot(ff.doc(fdb, 'plans', meta.owner), x => {
-        if(treeId !== id) return;
-        ownerPro = proOf(x.exists() ? x.data() : null);
-        applyLock();
-      }, () => {});
-    }
+    // 共有中（メンバー2人以上）のツリーを編集できるのは有料版のユーザーだけ。無料版の人は閲覧のみ
     function applyLock(){
       if(!meta || !user) return;
-      const lock = meta.owner !== user.uid && meta.members.length > 1 && !ownerPro;
+      const lock = meta.members.length > 1 && !myPro;
       if(lock === readOnly) return;
       readOnly = lock;
-      if(lock) setStatus('閲覧のみ（オーナーの有料版の期限が切れています。変更はこの端末だけ）');
+      if(lock) setStatus('閲覧のみ（共有中のツリーの編集は有料版の機能です。変更はこの端末だけ）');
       else { setStatus(SHARED); if(lastJson !== JSON.stringify(state)) save(); }
       if(!$('#share').hidden) renderShare();
     }
@@ -803,13 +791,15 @@ li.target>.row::after{
         if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
         lastJson = null; applyRemote(d.json);
       } else { syncMembers(); render(); }
-      watchOwnerPlan();
-      // 自分の表示名を共有メンバーに見せる（担当者の名前に使う）
-      const nm = (u.displayName || '').trim().slice(0, 40);
-      if(nm && (d.names || {})[myEmail()] !== nm) ff.updateDoc(r, new ff.FieldPath('names', myEmail()), nm).catch(() => {});
+      applyLock();
+      // 自分の表示名（担当者の名前に使う）と UID（メンバー一覧で有料版かを出すのに使う）を共有メンバーに見せる
+      const nm = (u.displayName || '').trim().slice(0, 40), mine = [];
+      if(nm && (d.names || {})[myEmail()] !== nm) mine.push(new ff.FieldPath('names', myEmail()), nm);
+      if((d.uids || {})[myEmail()] !== u.uid) mine.push(new ff.FieldPath('uids', myEmail()), u.uid);
+      if(mine.length) ff.updateDoc(r, ...mine).catch(() => {});
       undoSnap = null; $('#toast').hidden = true;
       closePanel();
-      updateLabel(); setStatus(SHARED);
+      updateLabel(); setStatus(readOnly ? '閲覧のみ（共有中のツリーの編集は有料版の機能です。変更はこの端末だけ）' : SHARED);
       try{ localStorage.setItem('arbo-tree:' + u.uid, id); }catch(e){}
       ff.setDoc(userDoc(), {last: id}, {merge: true}).catch(() => {});
       unsub = ff.onSnapshot(r, x => {
@@ -817,7 +807,7 @@ li.target>.row::after{
         if(!x.exists()){ goPersonal('「' + treeName(meta) + '」を開けなくなりました（削除されたか、共有から外れました）'); return; }
         const before = JSON.stringify([meta.members, meta.names]);
         meta = x.data(); updateLabel(); if(!saveTimer && !saving && !readOnly && Date.now() >= noticeUntil) setStatus(SHARED);
-        watchOwnerPlan(); applyLock();
+        applyLock();
         if(!$('#share').hidden) renderShare();
         const json = typeof meta.json === 'string' ? meta.json : null;
         if(!x.metadata.hasPendingWrites && json && json !== lastJson) applyRemote(json);
@@ -851,15 +841,19 @@ li.target>.row::after{
       shareBtn.hidden = !u;
       if(unsubPlan){ unsubPlan(); unsubPlan = null; }
       myPro = false;
+      let planReady = null;
+      const planLoaded = new Promise(res => { planReady = res; setTimeout(res, 3000); });
       if(u) unsubPlan = ff.onSnapshot(ff.doc(fdb, 'plans', u.uid), x => {
         myPro = proOf(x.exists() ? x.data() : null);
-        if(meta && meta.owner === u.uid) ownerPro = myPro;
+        planReady();
+        planCache.set(u.uid, myPro);
+        applyLock();
         if(!$('#share').hidden) renderShare();
       }, () => {});
       if(!u){ setStatus(hashTree() ? 'ログインすると共有されたツリーを開けます' : 'この端末に保存'); return; }
       setStatus('読み込み中…');
       try{
-        const us = await ff.getDoc(userDoc());
+        const [us] = await Promise.all([ff.getDoc(userDoc()), planLoaded]);
         if(user !== u) return;
         const prof = us.exists() ? us.data() : {};
         personalId = prof.personal || null;
@@ -922,6 +916,17 @@ li.target>.row::after{
         li.appendChild(el('span', null, {text: m}));
         if(m === meta.ownerEmail) li.appendChild(el('span', 'sh-tag', {text: 'オーナー'}));
         else if(m === myEmail()) li.appendChild(el('span', 'sh-tag', {text: '自分'}));
+        // 有料版かどうか（一度もこのツリーを開いていない人は分からない）
+        const muid = (meta.uids || {})[m];
+        const pro = m === myEmail() ? myPro : muid ? planCache.get(muid) : undefined;
+        const tag = muid || m === myEmail()
+          ? (pro === undefined ? '' : pro ? '有料版・編集できます' : '無料版・閲覧のみ')
+          : 'まだ開いていません';
+        if(tag) li.appendChild(el('span', 'sh-tag' + (pro ? ' pro' : ''), {text: tag}));
+        if(muid && m !== myEmail() && !planCache.has(muid)){
+          planCache.set(muid, undefined);
+          ff.getDoc(ff.doc(fdb, 'plans', muid)).then(x => { planCache.set(muid, proOf(x.exists() ? x.data() : null)); if(!$('#share').hidden) renderShare(); }).catch(() => planCache.delete(muid));
+        }
         if(owner && m !== meta.ownerEmail){
           const b = el('button', 'sh-x', {type: 'button', 'data-email': m, 'aria-label': m + ' を共有から外す', title: '共有から外す', text: '×'});
           li.appendChild(b);
@@ -929,14 +934,13 @@ li.target>.row::after{
         ul.appendChild(li);
       });
       const shared = meta.members.length > 1;
-      $('#shAdd').hidden = !owner || !myPro;
-      $('#shPro').hidden = !owner || myPro;
+      $('#shAdd').hidden = !owner;
+      $('#shPro').hidden = myPro;
       $('#shProMsg').textContent = shared
-        ? '有料版の期限が切れているため、新しいメンバーは招待できず、ほかのメンバーは閲覧のみになっています。'
-        : 'メンバーの招待（チームでの共有）は有料版の機能です。';
+        ? 'あなたは無料版のため、このツリーは閲覧のみです。共有中のツリーを編集できるのは有料版のユーザーだけです。'
+        : '招待はだれでもできますが、共有したツリーを編集できるのは有料版のユーザーだけです（無料版の人は閲覧のみ）。あなたも無料版のため、招待すると閲覧のみになります。';
       $('#shUpgrade').hidden = !UPGRADE;
-      $('#shCopy').hidden = !shared && !(owner && myPro);
-      $('#shLocked').hidden = owner || !shared || ownerPro;
+      $('#shCopy').hidden = !shared;
       $('#shLeave').hidden = owner;
       $('#shDelete').hidden = !owner || treeId === personalId;
       // 一覧の選択と名前を最新に
@@ -970,7 +974,7 @@ li.target>.row::after{
       e.preventDefault();
       const inp = $('#shEmail'), v = inp.value.trim().toLowerCase();
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){ shMsg('メールアドレスを入れてください'); return; }
-      if(!myPro){ shMsg('メンバーの招待は有料版の機能です'); return; }
+      if(!myPro && meta.members.length === 1 && !confirm('あなたは無料版のため、招待するとこのツリーは閲覧のみになります（メンバーを外せば元に戻ります）。招待しますか？')) return;
       if(meta.members.includes(v)){ shMsg(v + ' はすでにメンバーです'); return; }
       try{
         await ff.updateDoc(ff.doc(fdb, 'trees', treeId), {members: ff.arrayUnion(v)});

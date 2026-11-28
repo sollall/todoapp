@@ -18,28 +18,38 @@ service cloud.firestore {
     // ツリー（1ツリー = 1ドキュメント）。members に入っているメールアドレスの人だけが読み書きできる
     //   owner / ownerEmail … 作った人（変更不可）
     //   members           … 共有メンバーのメールアドレス（小文字）。担当者の候補にもなる
-    //   names             … メンバーの表示名（各自が自分の分だけ書ける）
+    //   names / uids      … メンバーの表示名と UID（各自が自分の分だけ書ける。UID は本人のものだけ）
     // 有料版の制限:
-    //   - メンバーを増やせる（招待できる）のは、有料版が有効なオーナーだけ。作るときは自分1人だけ
-    //   - オーナーの有料版が切れると、オーナー以外のメンバーは閲覧のみ（抜ける・自分の名前の変更はできる）
-    //   - メンバーを外す・自分のツリーを編集する・端末間で同期するのは無料でもできる
+    //   - 招待（メンバーの追加）はだれでもできる
+    //   - 共有中（メンバー2人以上）のツリーの中身（json・name）を変えられるのは、有料版が有効なユーザーだけ。
+    //     無料版の人は閲覧のみ（抜ける・自分の名前の変更・オーナーによるメンバーの追加や解除はできる）
+    //   - 自分1人のツリーは無料版でも編集できる
     match /trees/{treeId} {
       function before() { return resource.data; }
       function after() { return request.resource.data; }
       function isOwner() { return request.auth.uid == before().owner; }
       function changed() { return after().diff(before()).affectedKeys(); }
-      function added() { return after().members.toSet().difference(before().members.toSet()); }
+      function ownKeyOnly(field) {
+        return after().get(field, {}).diff(before().get(field, {})).affectedKeys().hasOnly([me()]);
+      }
       function namesOk() {
-        return !changed().hasAny(['names'])
-          || isOwner()
-          || after().get('names', {}).diff(before().get('names', {})).affectedKeys().hasOnly([me()]);
+        return !changed().hasAny(['names']) || isOwner() || ownKeyOnly('names');
+      }
+      function uidsOk() {
+        return !changed().hasAny(['uids'])
+          || (ownKeyOnly('uids') && after().uids[me()] == request.auth.uid);
       }
       function membersOk() {
         return after().members == before().members
-          // オーナー: 外すのは自由。増やすのは有料版のときだけ。自分は外せない
-          || (isOwner() && before().ownerEmail in after().members && (added().size() == 0 || isPro(request.auth.uid)))
+          // オーナー: 自由に増やしたり外したりできる（自分は外せない）
+          || (isOwner() && before().ownerEmail in after().members)
           // メンバー: 自分だけを外す（抜ける）
           || (!isOwner() && after().members.toSet() == before().members.toSet().difference([me()].toSet()));
+      }
+      function contentOk() {
+        return !changed().hasAny(['json', 'updatedAt', 'name'])
+          || before().members.size() <= 1
+          || isPro(request.auth.uid);
       }
 
       allow get: if signedIn() && (resource == null || me() in resource.data.members);
@@ -56,12 +66,13 @@ service cloud.firestore {
         && after().members.size() <= 100
         && membersOk()
         && namesOk()
-        && (isOwner() || !changed().hasAny(['json', 'updatedAt', 'name']) || isPro(before().owner));
+        && uidsOk()
+        && contentOk();
       allow delete: if signedIn() && isOwner();
     }
 
     // 有料版の状態。書き込みはサーバー（管理者・決済の仕組み）だけ。読むのはログインしている人なら可
-    // （共有ツリーのメンバーが、オーナーの有料版が有効か＝編集できるかを画面に出すため）
+    // （共有画面のメンバー一覧に、各メンバーが有料版＝編集できるかを出すため）
     match /plans/{uid} {
       allow read: if request.auth != null;
       allow write: if false;
