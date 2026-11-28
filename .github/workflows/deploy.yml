@@ -29,6 +29,23 @@ jobs:
           cache-dependency-path: my_app/package-lock.json
       - run: npm ci
       - run: npm run build
+      # リポジトリの Variables に FIREBASE_CONFIG（Firebase コンソールの firebaseConfig の { ... } 部分）があれば、
+      # 公開するページの firebase-config.js をその設定で置き換える
+      - name: Firebase の設定を入れる
+        env:
+          FIREBASE_CONFIG: ${{ vars.FIREBASE_CONFIG }}
+        run: |
+          cfg="$(printf '%s' "$FIREBASE_CONFIG" | sed -e 's/^[[:space:]]*const[[:space:]]*firebaseConfig[[:space:]]*=[[:space:]]*//' -e 's/;[[:space:]]*$//')"
+          if [ -z "$cfg" ]; then
+            echo "FIREBASE_CONFIG が未設定なので、Firebase は使わない（この端末にだけ保存）"
+            exit 0
+          fi
+          case "$cfg" in
+            \{*\}) ;;
+            *) echo "::error::FIREBASE_CONFIG は { で始まり } で終わる形で入れてください"; exit 1 ;;
+          esac
+          printf '// GitHub Actions が Variables の FIREBASE_CONFIG から作ったファイル\nwindow.FIREBASE_CONFIG = %s;\n' "$cfg" > dist/firebase-config.js
+          node -e "global.window={}; require('./dist/firebase-config.js'); const c=window.FIREBASE_CONFIG; if(!c||!c.apiKey||!c.projectId){console.error('::error::FIREBASE_CONFIG に apiKey と projectId が必要です'); process.exit(1)} console.log('Firebase プロジェクト: '+c.projectId)"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: my_app/dist

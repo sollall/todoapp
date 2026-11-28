@@ -1,0 +1,89 @@
+name: Firebase 管理
+
+# リポジトリの Secrets に FIREBASE_SERVICE_ACCOUNT（Firebase のサービスアカウントの鍵 JSON の中身）が必要
+on:
+  push:
+    branches: [main]
+    paths: [firestore.rules]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'やること'
+        required: true
+        type: choice
+        options:
+          - ルールを反映（firestore.rules）
+          - 有料版にする
+          - 有料版をやめる
+          - 有料版の状態を見る
+          - GitHub Pages のドメインでログインを許可
+      email:
+        description: '対象のメールアドレス（有料版の操作のとき）'
+        required: false
+        type: string
+      days:
+        description: '有料版の日数（有料版にするとき）'
+        required: false
+        default: '30'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-admin
+  cancel-in-progress: false
+
+jobs:
+  admin:
+    runs-on: ubuntu-latest
+    env:
+      ACTION: ${{ github.event_name == 'push' && 'ルールを反映（firestore.rules）' || inputs.action }}
+      EMAIL: ${{ inputs.email }}
+      DAYS: ${{ inputs.days }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: サービスアカウントの鍵を用意する
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Secrets に FIREBASE_SERVICE_ACCOUNT がありません（README の手順を見てください）"; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+          echo "PROJECT_ID=$(node -p "require('$RUNNER_TEMP/sa.json').project_id")" >> "$GITHUB_ENV"
+
+      - name: ルールを反映
+        if: env.ACTION == 'ルールを反映（firestore.rules）'
+        run: npx --yes firebase-tools@15 deploy --only firestore:rules --project "$PROJECT_ID" --non-interactive
+
+      - name: 管理スクリプトを用意
+        if: env.ACTION != 'ルールを反映（firestore.rules）'
+        working-directory: scripts
+        run: npm ci
+
+      - name: 有料版にする
+        if: env.ACTION == '有料版にする'
+        working-directory: scripts
+        run: node admin.mjs set-plan "$EMAIL" "$DAYS"
+
+      - name: 有料版をやめる
+        if: env.ACTION == '有料版をやめる'
+        working-directory: scripts
+        run: node admin.mjs set-plan "$EMAIL" 0
+
+      - name: 有料版の状態を見る
+        if: env.ACTION == '有料版の状態を見る'
+        working-directory: scripts
+        run: node admin.mjs show-plan "$EMAIL"
+
+      - name: GitHub Pages のドメインでログインを許可
+        if: env.ACTION == 'GitHub Pages のドメインでログインを許可'
+        working-directory: scripts
+        run: node admin.mjs authorize-domain "${GITHUB_REPOSITORY_OWNER,,}.github.io"
+
+      - name: 鍵を消す
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
